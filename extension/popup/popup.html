@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subtitle Anywhere</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <h1 class="title">Subtitle Anywhere</h1>
+
+    <div class="status-bar">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="status-text" id="statusText">Disconnected</span>
+    </div>
+
+    <button class="toggle-btn" id="toggleBtn">Start Capture</button>
+
+    <div class="control-group">
+      <label for="sourceLang">Source Language</label>
+      <select id="sourceLang">
+        <option value="auto">Auto Detect</option>
+        <option value="zh">Chinese</option>
+        <option value="en">English</option>
+        <option value="ja">Japanese</option>
+        <option value="ko">Korean</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="targetLang">Translate To</label>
+      <select id="targetLang">
+        <option value="none">None (no translation)</option>
+        <option value="en">English</option>
+        <option value="zh">Chinese (中文)</option>
+        <option value="ja">Japanese (日本語)</option>
+        <option value="ko">Korean (한국어)</option>
+        <option value="fr">French (Français)</option>
+        <option value="de">German (Deutsch)</option>
+        <option value="es">Spanish (Español)</option>
+        <option value="pt">Portuguese (Português)</option>
+        <option value="ru">Russian (Русский)</option>
+        <option value="ar">Arabic (العربية)</option>
+        <option value="hi">Hindi (हिन्दी)</option>
+        <option value="th">Thai (ไทย)</option>
+        <option value="vi">Vietnamese (Tiếng Việt)</option>
+        <option value="it">Italian (Italiano)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="fontSize">Font Size: <span id="fontSizeValue">20</span>px</label>
+      <input type="range" id="fontSize" min="12" max="36" value="20">
+    </div>
+
+    <a class="options-link" id="optionsLink">Advanced Settings</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

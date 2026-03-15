@@ -1,0 +1,8 @@
+funasr
+websockets>=12.0
+numpy
+torch
+torchaudio
+ctranslate2
+sentencepiece
+huggingface_hub

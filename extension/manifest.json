@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Subtitle Anywhere",
+  "version": "1.0.0",
+  "description": "Real-time speech-to-text subtitles for any browser tab with optional LLM translation.",
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:* https://*"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Subtitle Anywhere"
+  },
+  "options_page": "options/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/pcm-processor.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

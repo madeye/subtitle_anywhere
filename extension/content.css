@@ -1,0 +1,41 @@
+/*
+ * Subtitle Anywhere - Content overlay styles
+ *
+ * Most styling is applied inline from content.js so it can react to user
+ * settings. This stylesheet provides base structure and text shadows.
+ */
+
+#subtitle-anywhere-overlay {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 0.4s ease;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.4;
+  display: none;
+}
+
+#subtitle-anywhere-overlay .sa-translated {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  overflow-wrap: break-word;
+}
+
+#subtitle-anywhere-overlay .sa-original {
+  font-size: 16px;
+  overflow-wrap: break-word;
+}
+
+#subtitle-anywhere-overlay .sa-translated,
+#subtitle-anywhere-overlay .sa-original {
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(0, 0, 0, 0.7),
+    1px 1px 2px rgba(0, 0, 0, 0.8);
+}
