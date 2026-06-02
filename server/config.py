@@ -1,13 +1,28 @@
-from dataclasses import dataclass
+import os
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
-class ServerConfig:
-    host: str = "0.0.0.0"
-    port: int = 10095
-    device: str = "cuda"  # or "cpu", "mps"
-    model_id: str = "iic/SenseVoiceSmall"
-    vad_model: str = "fsmn-vad"
-    chunk_interval_ms: int = 600  # how often client sends audio
-    inference_interval_s: float = 1.0  # how often to run partial inference
-    max_buffer_s: float = 3.0  # max audio buffer before forced inference + translation
+class BatchConfig:
+    """Runtime configuration for local batch subtitle generation."""
+
+    backend: str = "mlx-whisper"
+    model_id: str = "mlx-community/whisper-tiny"
+    translator_model_id: str | None = "mlx-community/Qwen3-1.7B-4bit"
+    local_only: bool = False
+    device: str = "auto"
+    source_lang: str = "eng"
+    target_lang: str = "zho"
+    translate: bool = True
+    output_dir: Path | None = None
+    overwrite: bool = False
+    skip_existing: bool = False
+    keep_audio: bool = False
+    chunk_seconds: float = 10.0
+    min_chunk_seconds: float = 1.0
+    silence_threshold: float = 0.003
+    work_dir: str = field(
+        default_factory=lambda: os.path.join(tempfile.gettempdir(), "subtitle_anywhere")
+    )

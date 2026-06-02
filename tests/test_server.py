@@ -1,0 +1,359 @@
+from __future__ import annotations
+
+import sys
+import tempfile
+import unittest
+import os
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
+
+import server
+from hf_utils import LocalSnapshotStatus, ModelInfo, ProxyConnectStatus
+
+
+class ServerCliTests(unittest.TestCase):
+    def test_collect_inputs_expands_directories_globs_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            video = root / "a.mp4"
+            nested = root / "nested"
+            nested.mkdir()
+            audio = nested / "b.wav"
+            ignored = root / "notes.txt"
+            for path in (video, audio, ignored):
+                path.write_text("x", encoding="utf-8")
+
+            result = server.collect_inputs([str(root), str(root / "*.mp4")])
+
+            self.assertEqual(result, [video.resolve(), audio.resolve()])
+
+    def test_find_output_collisions_detects_same_stem_in_output_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            first = root / "a" / "clip.mp4"
+            second = root / "b" / "clip.mkv"
+            for path in (first, second):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            config = server.BatchConfig(output_dir=root / "out", target_lang="zho")
+            collisions = server.find_output_collisions([first, second], config)
+
+        self.assertEqual(len(collisions), 1)
+        self.assertEqual(next(iter(collisions.values())), [first, second])
+
+    def test_find_output_collisions_allows_distinct_stems(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            first = root / "a" / "clip-one.mp4"
+            second = root / "b" / "clip-two.mkv"
+            config = server.BatchConfig(output_dir=root / "out", target_lang="zho")
+
+            self.assertEqual(server.find_output_collisions([first, second], config), {})
+
+    def test_filter_existing_outputs_skips_only_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "clip.wav"
+            media.write_text("x", encoding="utf-8")
+            out_dir = root / "out"
+            out_dir.mkdir()
+            output_path = out_dir / "clip.zho.srt"
+            output_path.write_text("existing", encoding="utf-8")
+            config = server.BatchConfig(output_dir=out_dir, skip_existing=True)
+
+            remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertEqual(skipped, [(media, output_path)])
+
+    def test_filter_existing_outputs_ignores_existing_when_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "clip.wav"
+            media.write_text("x", encoding="utf-8")
+            out_dir = root / "out"
+            out_dir.mkdir()
+            (out_dir / "clip.zho.srt").write_text("existing", encoding="utf-8")
+            config = server.BatchConfig(output_dir=out_dir, skip_existing=True, overwrite=True)
+
+            remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [media])
+        self.assertEqual(skipped, [])
+
+    def test_validate_batch_config_accepts_defaults(self) -> None:
+        config = server.BatchConfig()
+
+        self.assertEqual(config.chunk_seconds, 10.0)
+        self.assertEqual(server.validate_batch_config(config), [])
+
+    def test_validate_batch_config_rejects_invalid_timing(self) -> None:
+        config = server.BatchConfig(
+            chunk_seconds=0,
+            min_chunk_seconds=2,
+            silence_threshold=-0.1,
+        )
+        errors = server.validate_batch_config(config)
+
+        self.assertIn("--chunk-seconds must be greater than 0", errors)
+        self.assertIn("--min-chunk-seconds must be less than or equal to --chunk-seconds", errors)
+        self.assertIn("--silence-threshold must be greater than or equal to 0", errors)
+
+    def test_validate_batch_config_rejects_non_positive_min_chunk(self) -> None:
+        config = server.BatchConfig(min_chunk_seconds=0)
+
+        self.assertIn(
+            "--min-chunk-seconds must be greater than 0",
+            server.validate_batch_config(config),
+        )
+
+    def test_mlx_whisper_selects_default_translator_for_chinese_target(self) -> None:
+        args = server.argparse.Namespace(
+            backend="mlx-whisper",
+            model=None,
+            translator_model=None,
+            no_translate=False,
+            source_lang="eng",
+            target_lang="zho",
+        )
+
+        self.assertEqual(server.selected_model(args), server.DEFAULT_MLX_WHISPER_MODEL)
+        self.assertEqual(
+            server.selected_translator_model(args),
+            server.DEFAULT_MLX_TRANSLATOR_MODEL,
+        )
+
+    def test_mlx_whisper_does_not_need_translator_for_source_only(self) -> None:
+        args = server.argparse.Namespace(
+            backend="mlx-whisper",
+            model=None,
+            translator_model=None,
+            no_translate=True,
+            source_lang="eng",
+            target_lang="zho",
+        )
+
+        self.assertIsNone(server.selected_translator_model(args))
+
+    def test_create_engine_passes_mlx_translator_model(self) -> None:
+        config = server.BatchConfig(
+            backend="mlx-whisper",
+            model_id="mlx-community/whisper-tiny",
+            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
+        )
+
+        with patch.object(server, "MLXWhisperEngine") as mock_engine:
+            server.create_engine(config)
+
+        mock_engine.assert_called_once_with(
+            "mlx-community/whisper-tiny",
+            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
+            local_only=False,
+        )
+
+    def test_dry_run_prints_mapping_without_model_load(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "clip.wav"
+            media.write_text("x", encoding="utf-8")
+            output = StringIO()
+
+            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+                with patch.object(
+                    sys,
+                    "argv",
+                    ["server.py", str(media), "--dry-run", "--output-dir", str(root / "out")],
+                ):
+                    with redirect_stdout(output):
+                        self.assertEqual(server.main(), 0)
+
+        mock_engine.assert_not_called()
+        self.assertIn("inputs=1", output.getvalue())
+        self.assertIn("clip.wav ->", output.getvalue())
+        self.assertIn("clip.zho.srt", output.getvalue())
+
+    def test_dry_run_mlx_backend_prints_models_without_model_load(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "clip.wav"
+            media.write_text("x", encoding="utf-8")
+            output = StringIO()
+
+            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+                with patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "server.py",
+                        str(media),
+                        "--backend",
+                        "mlx-whisper",
+                        "--dry-run",
+                        "--output-dir",
+                        str(root / "out"),
+                    ],
+                ):
+                    with redirect_stdout(output):
+                        self.assertEqual(server.main(), 0)
+
+        mock_engine.assert_not_called()
+        self.assertIn("backend=mlx-whisper", output.getvalue())
+        self.assertIn("mlx-community/Qwen3-1.7B-4bit", output.getvalue())
+
+    def test_skip_existing_allows_exit_without_model_load(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "clip.wav"
+            media.write_text("x", encoding="utf-8")
+            out_dir = root / "out"
+            out_dir.mkdir()
+            (out_dir / "clip.zho.srt").write_text("existing", encoding="utf-8")
+            output = StringIO()
+
+            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+                with patch.object(
+                    sys,
+                    "argv",
+                    ["server.py", str(media), "--skip-existing", "--output-dir", str(out_dir)],
+                ):
+                    with redirect_stdout(output):
+                        self.assertEqual(server.main(), 0)
+
+        mock_engine.assert_not_called()
+        self.assertIn("skip existing:", output.getvalue())
+
+    def test_check_model_exits_without_inputs(self) -> None:
+        with patch.object(
+            server,
+            "get_model_info",
+            return_value=ModelInfo("facebook/hf-seamless-m4t-medium", "abc123", True, 10, 1024),
+        ) as mock_info:
+            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--check-model"]):
+                output = StringIO()
+                with redirect_stdout(output):
+                    self.assertEqual(server.main(), 0)
+
+        mock_info.assert_called_once_with("facebook/seamless-m4t-medium")
+        self.assertIn("files=10", output.getvalue())
+        self.assertIn("size=1.0 KiB", output.getvalue())
+
+    def test_download_model_exits_without_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            with patch.object(server, "resolve_model_dir", return_value=target) as mock_resolve:
+                with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--download-model"]):
+                    with redirect_stdout(StringIO()):
+                        self.assertEqual(server.main(), 0)
+
+        mock_resolve.assert_called_once_with("facebook/seamless-m4t-medium", local_only=False)
+
+    def test_default_download_model_resolves_mlx_models(self) -> None:
+        with patch.object(server, "resolve_mlx_model_path", side_effect=["/whisper", "/translator"]) as mock_resolve:
+            with patch.object(sys, "argv", ["server.py", "--download-model"]):
+                output = StringIO()
+                with redirect_stdout(output):
+                    self.assertEqual(server.main(), 0)
+
+        self.assertEqual(
+            mock_resolve.call_args_list,
+            [
+                unittest.mock.call("mlx-community/whisper-tiny", local_only=False),
+                unittest.mock.call("mlx-community/Qwen3-1.7B-4bit", local_only=False),
+            ],
+        )
+        self.assertIn("/whisper", output.getvalue())
+        self.assertIn("/translator", output.getvalue())
+
+    def test_download_model_passes_local_only(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            with patch.object(server, "resolve_model_dir", return_value=target) as mock_resolve:
+                with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--download-model", "--local-only"]):
+                    with redirect_stdout(StringIO()):
+                        self.assertEqual(server.main(), 0)
+
+        mock_resolve.assert_called_once_with("facebook/seamless-m4t-medium", local_only=True)
+
+    def test_check_model_reports_runtime_error_without_traceback(self) -> None:
+        with patch.object(server, "get_model_info", side_effect=RuntimeError("proxy failed")):
+            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--check-model"]):
+                self.assertEqual(server.main(), 1)
+
+    def test_default_check_model_reports_mlx_models(self) -> None:
+        with patch.object(sys, "argv", ["server.py", "--check-model"]):
+            output = StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(server.main(), 0)
+
+        self.assertIn("backend=mlx-whisper", output.getvalue())
+        self.assertIn("translator=mlx-community/Qwen3-1.7B-4bit", output.getvalue())
+
+    def test_check_network_exits_without_inputs(self) -> None:
+        with patch.object(server, "check_network", return_value="ok status=200 url=https://example.test") as mock_check:
+            with patch.object(sys, "argv", ["server.py", "--check-network"]):
+                with redirect_stdout(StringIO()):
+                    self.assertEqual(server.main(), 0)
+
+        mock_check.assert_called_once_with()
+
+    def test_check_proxy_exits_without_inputs(self) -> None:
+        status = ProxyConnectStatus(
+            proxy="http://127.0.0.1:8080",
+            target="huggingface.co:443",
+            ok=True,
+            response="HTTP/1.1 200 Connection established",
+        )
+        with patch.object(server, "check_proxy_connect", return_value=status) as mock_check:
+            with patch.object(sys, "argv", ["server.py", "--check-proxy"]):
+                with redirect_stdout(StringIO()):
+                    self.assertEqual(server.main(), 0)
+
+        mock_check.assert_called_once_with()
+
+    def test_model_status_exits_without_inputs(self) -> None:
+        status = LocalSnapshotStatus(
+            model_id="facebook/hf-seamless-m4t-medium",
+            revision="rev123",
+            path=Path("/tmp/model"),
+            file_count=4,
+            total_size_bytes=1024,
+            temp_file_count=1,
+            temp_size_bytes=2048,
+            has_config=True,
+        )
+        with patch.object(server, "get_local_model_status", return_value=[status]) as mock_status:
+            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--model-status"]):
+                output = StringIO()
+                with redirect_stdout(output):
+                    self.assertEqual(server.main(), 0)
+
+        mock_status.assert_called_once_with("facebook/seamless-m4t-medium")
+        self.assertIn("partial_files=1", output.getvalue())
+
+    def test_apply_proxy_args_sets_override_proxy(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            server.apply_proxy_args("http://proxy.test:8080", False)
+            self.assertEqual(os.environ["HTTPS_PROXY"], "http://proxy.test:8080")
+            self.assertEqual(os.environ["https_proxy"], "http://proxy.test:8080")
+
+    def test_apply_proxy_args_removes_proxy(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "HTTPS_PROXY": "http://proxy.test:8080",
+                "https_proxy": "http://proxy.test:8080",
+            },
+            clear=True,
+        ):
+            server.apply_proxy_args(None, True)
+            self.assertNotIn("HTTPS_PROXY", os.environ)
+            self.assertNotIn("https_proxy", os.environ)
+
+
+if __name__ == "__main__":
+    unittest.main()
