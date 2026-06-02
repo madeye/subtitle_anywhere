@@ -13,7 +13,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 from config import BatchConfig
-from pipeline import SubtitlePipeline, iter_audio_chunks, render_srt
+from pipeline import SubtitlePipeline, iter_audio_chunks, render_srt, split_segment_for_display, split_text_balanced
 from seamless import Segment
 
 
@@ -39,6 +39,37 @@ class PipelineTests(unittest.TestCase):
             text,
             "1\n00:00:01,230 --> 00:00:03,900\nHello\n你好\n",
         )
+
+    def test_split_segment_for_display_preserves_context_but_shortens_cues(self) -> None:
+        segment = Segment(
+            10.0,
+            20.0,
+            "First sentence. Second sentence. Third sentence.",
+            "eng",
+            "第一句。第二句。第三句。",
+        )
+
+        parts = split_segment_for_display(segment, cue_seconds=4.0, max_cue_chars=90)
+
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(parts[0].start, 10.0)
+        self.assertAlmostEqual(parts[0].end, 13.333, places=3)
+        self.assertEqual(parts[-1].end, 20.0)
+        self.assertIn("First sentence", parts[0].text)
+        self.assertIn("第二句", "".join(part.translated_text for part in parts))
+
+    def test_split_text_balanced_breaks_long_words_by_words(self) -> None:
+        parts = split_text_balanced("one two three four five six", 3)
+
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(" ".join(parts), "one two three four five six")
+
+    def test_split_text_balanced_breaks_oversized_sentence(self) -> None:
+        text = "one two three four five six seven eight nine ten."
+        parts = split_text_balanced(text, 3)
+
+        self.assertEqual(len(parts), 3)
+        self.assertLess(max(len(part) for part in parts), len(text))
 
     def test_continuous_audio_uses_configured_chunk_window(self) -> None:
         audio = np.ones(16_000 * 2, dtype=np.float32) * 0.02

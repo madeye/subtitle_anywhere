@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import math
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -66,6 +68,7 @@ class SubtitlePipeline:
 
     def _process_chunks(self, audio: np.ndarray) -> list[Segment]:
         segments: list[Segment] = []
+        supports_lines = hasattr(self.engine, "transcribe_translate_lines")
         for start, end, chunk in iter_audio_chunks(
             audio,
             chunk_seconds=self.config.chunk_seconds,
@@ -73,6 +76,30 @@ class SubtitlePipeline:
             silence_threshold=self.config.silence_threshold,
         ):
             logger.info("Processing %.1fs-%.1fs", start, end)
+            if supports_lines:
+                chunk_lines = self.engine.transcribe_translate_lines(
+                    chunk,
+                    source_lang=self.config.source_lang,
+                    target_lang=self.config.target_lang,
+                    translate=self.config.translate,
+                )
+                for line in chunk_lines:
+                    absolute_line = Segment(
+                        start=start + line.start,
+                        end=min(end, start + line.end),
+                        text=line.text,
+                        language=line.language or self.config.source_lang,
+                        translated_text=line.translated_text,
+                    )
+                    segments.extend(
+                        split_segment_for_display(
+                            absolute_line,
+                            cue_seconds=self.config.cue_seconds,
+                            max_cue_chars=self.config.max_cue_chars,
+                        )
+                    )
+                continue
+
             source_text, translated_text = self.engine.transcribe_translate(
                 chunk,
                 source_lang=self.config.source_lang,
@@ -81,16 +108,112 @@ class SubtitlePipeline:
             )
             if not source_text and not translated_text:
                 continue
-            segments.append(
-                Segment(
-                    start=start,
-                    end=end,
-                    text=source_text,
-                    language=self.config.source_lang,
-                    translated_text=translated_text,
+            segments.extend(
+                split_segment_for_display(
+                    Segment(
+                        start=start,
+                        end=end,
+                        text=source_text,
+                        language=self.config.source_lang,
+                        translated_text=translated_text,
+                    ),
+                    cue_seconds=self.config.cue_seconds,
+                    max_cue_chars=self.config.max_cue_chars,
                 )
             )
         return segments
+
+
+def split_segment_for_display(
+    segment: Segment,
+    cue_seconds: float,
+    max_cue_chars: int,
+) -> list[Segment]:
+    duration = max(0.0, segment.end - segment.start)
+    if duration <= cue_seconds and max(len(segment.text), len(segment.translated_text)) <= max_cue_chars:
+        return [segment]
+
+    part_count = max(
+        1,
+        math.ceil(duration / cue_seconds),
+        math.ceil(len(segment.text) / max_cue_chars) if segment.text else 1,
+        math.ceil(len(segment.translated_text) / max_cue_chars) if segment.translated_text else 1,
+    )
+    source_parts = split_text_balanced(segment.text, part_count)
+    translated_parts = split_text_balanced(segment.translated_text, part_count)
+    part_count = max(len(source_parts), len(translated_parts))
+    source_parts.extend([""] * (part_count - len(source_parts)))
+    translated_parts.extend([""] * (part_count - len(translated_parts)))
+
+    cue_duration = duration / part_count if part_count else duration
+    display_segments: list[Segment] = []
+    for index in range(part_count):
+        part_start = segment.start + cue_duration * index
+        part_end = segment.end if index == part_count - 1 else segment.start + cue_duration * (index + 1)
+        if not source_parts[index] and not translated_parts[index]:
+            continue
+        display_segments.append(
+            Segment(
+                start=part_start,
+                end=part_end,
+                text=source_parts[index],
+                language=segment.language,
+                translated_text=translated_parts[index],
+            )
+        )
+    return display_segments
+
+
+def split_text_balanced(text: str, part_count: int) -> list[str]:
+    text = " ".join(text.split())
+    if not text:
+        return []
+    if part_count <= 1:
+        return [text]
+
+    separator = " " if " " in text else ""
+    units = _split_sentence_units(text)
+    target_length = max(1, math.ceil(len(text) / part_count))
+    if len(units) < part_count or any(len(unit) > target_length * 1.5 for unit in units):
+        units = _split_word_or_char_units(text)
+    parts = _pack_units(units, part_count, separator)
+    if len(parts) < part_count:
+        parts = _pack_units(_split_word_or_char_units(text), part_count, separator)
+    return parts
+
+
+def _split_sentence_units(text: str) -> list[str]:
+    units = [unit.strip() for unit in re.findall(r"[^.!?。！？；;]+[.!?。！？；;]*", text) if unit.strip()]
+    return units or [text]
+
+
+def _split_word_or_char_units(text: str) -> list[str]:
+    if " " in text:
+        return [unit for unit in text.split(" ") if unit]
+    return list(text)
+
+
+def _pack_units(units: list[str], part_count: int, separator: str) -> list[str]:
+    remaining_units = units[:]
+    remaining_parts = part_count
+    parts: list[str] = []
+    while remaining_parts > 0 and remaining_units:
+        target = max(1, math.ceil(sum(len(unit) for unit in remaining_units) / remaining_parts))
+        current: list[str] = []
+        current_length = 0
+        while remaining_units and (not current or current_length + len(remaining_units[0]) <= target):
+            unit = remaining_units.pop(0)
+            current.append(unit)
+            current_length += len(unit)
+        parts.append(separator.join(current).strip())
+        remaining_parts -= 1
+    if remaining_units:
+        tail = separator.join(remaining_units)
+        if parts:
+            parts[-1] = f"{parts[-1]}{separator}{tail}".strip()
+        else:
+            parts.append(tail)
+    return [part for part in parts if part]
 
 
 def render_srt(segments: list[Segment]) -> str:
