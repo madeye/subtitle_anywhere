@@ -11,10 +11,14 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import sys
 from http import HTTPStatus
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+
+from run_manager import get_manager
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +70,42 @@ def save_config(payload: dict) -> dict:
     return sanitized
 
 
+def pick_folder(prompt: str, default: str = "") -> str | None:
+    """Open a native macOS folder picker via osascript.
+
+    Returns the chosen POSIX path, or None if the user cancelled.
+    """
+    safe_prompt = prompt.replace('"', '\\"')
+    default_clause = ""
+    if default:
+        default_path = Path(default).expanduser()
+        if default_path.is_dir():
+            safe_default = str(default_path).replace('"', '\\"')
+            default_clause = f' default location POSIX file "{safe_default}"'
+    script = (
+        f'try\n'
+        f'  set theFolder to choose folder with prompt "{safe_prompt}"{default_clause}\n'
+        f'  return POSIX path of theFolder\n'
+        f'on error number -128\n'
+        f'  return ""\n'
+        f'end try'
+    )
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        logger.warning("folder picker failed: %s", exc)
+        return None
+    path = result.stdout.strip()
+    if not path:
+        return None
+    return path.rstrip("/") or "/"
+
+
 def folder_info(path_str: str) -> dict:
     info = {"path": path_str, "exists": False, "is_dir": False, "video_count": 0}
     if not path_str:
@@ -95,6 +135,17 @@ class WebHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_json_body(self) -> dict | None:
+        length = int(self.headers.get("Content-Length") or "0")
+        if not length:
+            return None
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/api/config":
             cfg = load_config()
@@ -113,23 +164,39 @@ class WebHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/health":
             self._json(HTTPStatus.OK, {"ok": True})
             return
+        if self.path == "/api/run":
+            self._json(HTTPStatus.OK, get_manager().status())
+            return
+        parsed = urlsplit(self.path)
+        if parsed.path == "/api/pick-folder":
+            params = parse_qs(parsed.query)
+            prompt = (params.get("prompt") or ["Choose a folder"])[0]
+            default = (params.get("default") or [""])[0]
+            picked = pick_folder(prompt, default)
+            if picked is None:
+                self._json(HTTPStatus.OK, {"cancelled": True})
+            else:
+                self._json(HTTPStatus.OK, {"path": picked, "info": folder_info(picked)})
+            return
         if self.path == "/":
             self.path = "/index.html"
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path == "/api/run/cancel":
+            self._json(HTTPStatus.OK, get_manager().cancel())
+            return
+        if self.path == "/api/run":
+            payload = self._read_json_body()
+            cfg = save_config(payload) if isinstance(payload, dict) else load_config()
+            self._json(HTTPStatus.OK, get_manager().start(cfg))
+            return
         if self.path != "/api/config":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
-        length = int(self.headers.get("Content-Length") or "0")
-        raw = self.rfile.read(length) if length else b""
-        try:
-            payload = json.loads(raw.decode("utf-8") or "{}")
-        except json.JSONDecodeError:
+        payload = self._read_json_body()
+        if payload is None:
             self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
-            return
-        if not isinstance(payload, dict):
-            self._json(HTTPStatus.BAD_REQUEST, {"error": "expected object"})
             return
         saved = save_config(payload)
         src = saved.get("source_folder", "")

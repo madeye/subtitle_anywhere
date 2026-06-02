@@ -55,6 +55,7 @@ class SubtitlePipeline:
             extract_audio(input_path, audio_path)
 
             audio = load_wav(str(audio_path))
+            logger.info("Audio duration %.1fs", len(audio) / 16_000)
             segments = self._process_chunks(audio)
 
             if self.config.keep_audio:
@@ -96,6 +97,7 @@ class SubtitlePipeline:
                             absolute_line,
                             cue_seconds=self.config.cue_seconds,
                             max_cue_chars=self.config.max_cue_chars,
+                            max_cue_sentences=self.config.max_cue_sentences,
                         )
                     )
                 continue
@@ -119,6 +121,7 @@ class SubtitlePipeline:
                     ),
                     cue_seconds=self.config.cue_seconds,
                     max_cue_chars=self.config.max_cue_chars,
+                    max_cue_sentences=self.config.max_cue_sentences,
                 )
             )
         return segments
@@ -128,16 +131,33 @@ def split_segment_for_display(
     segment: Segment,
     cue_seconds: float,
     max_cue_chars: int,
+    max_cue_sentences: int = 0,
 ) -> list[Segment]:
     duration = max(0.0, segment.end - segment.start)
-    if duration <= cue_seconds and max(len(segment.text), len(segment.translated_text)) <= max_cue_chars:
+    sentence_count = (
+        len(_split_sentence_units(segment.text)) if segment.text else 0
+    )
+    sentence_cap_ok = (
+        max_cue_sentences <= 0 or sentence_count <= max_cue_sentences
+    )
+    if (
+        duration <= cue_seconds
+        and max(len(segment.text), len(segment.translated_text)) <= max_cue_chars
+        and sentence_cap_ok
+    ):
         return [segment]
 
+    sentence_parts = (
+        math.ceil(sentence_count / max_cue_sentences)
+        if max_cue_sentences > 0 and sentence_count > 0
+        else 1
+    )
     part_count = max(
         1,
         math.ceil(duration / cue_seconds),
         math.ceil(len(segment.text) / max_cue_chars) if segment.text else 1,
         math.ceil(len(segment.translated_text) / max_cue_chars) if segment.translated_text else 1,
+        sentence_parts,
     )
     source_parts = split_text_balanced(segment.text, part_count)
     translated_parts = split_text_balanced(segment.translated_text, part_count)

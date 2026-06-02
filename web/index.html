@@ -73,9 +73,9 @@
               placeholder="/Volumes/DATA/videos/My Show/"
               class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
-            <button type="button" id="paste_source"
+            <button type="button" id="browse_source"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-              Paste
+              Browse…
             </button>
           </div>
         </section>
@@ -109,9 +109,9 @@
               placeholder="/Volumes/Plex/Subtitles/My Show/"
               class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
-            <button type="button" id="paste_dest"
+            <button type="button" id="browse_dest"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-              Paste
+              Browse…
             </button>
           </div>
         </section>
@@ -165,14 +165,68 @@
 
       <!-- Generated CLI -->
       <section class="mt-6 rounded-2xl bg-slate-950 p-5 text-slate-100 shadow-soft ring-1 ring-slate-900/40 sm:p-6 dark:ring-slate-800/80">
-        <div class="mb-3 flex items-center justify-between">
+        <div class="mb-3 flex items-center justify-between gap-2">
           <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Run command</div>
-          <button id="copy_cli" type="button"
-            class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 transition hover:bg-slate-800">
-            Copy
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="copy_cli" type="button"
+              class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 transition hover:bg-slate-800">
+              Copy
+            </button>
+            <button id="run_btn" type="button"
+              class="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60">
+              Run
+            </button>
+            <button id="cancel_btn" type="button" hidden
+              class="rounded-md border border-rose-500/60 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20">
+              Cancel
+            </button>
+          </div>
         </div>
         <pre id="cli_preview" class="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[12.5px] leading-relaxed text-emerald-300">python server/server.py</pre>
+      </section>
+
+      <!-- Run progress -->
+      <section id="run_panel" class="mt-6 rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 sm:p-8 dark:bg-slate-950/40 dark:ring-slate-800/60" hidden>
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span id="run_state_dot" class="inline-block h-2 w-2 rounded-full bg-slate-400"></span>
+            <span id="run_state_text" class="text-sm font-medium">idle</span>
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">
+            elapsed <span id="run_elapsed" class="font-mono">0s</span>
+            <span class="mx-1">·</span>
+            ETA <span id="run_eta" class="font-mono">—</span>
+          </div>
+        </div>
+
+        <!-- File-level progress -->
+        <div class="mt-4">
+          <div class="flex items-baseline justify-between text-xs">
+            <span class="font-medium text-slate-600 dark:text-slate-300">Files</span>
+            <span id="run_progress_text" class="font-mono text-slate-500 dark:text-slate-400">0 / 0</span>
+          </div>
+          <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div id="run_bar" class="h-full rounded-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Chunk-level progress -->
+        <div class="mt-4">
+          <div class="flex items-baseline justify-between text-xs">
+            <span class="font-medium text-slate-600 dark:text-slate-300">Current file</span>
+            <span id="run_chunk_text" class="font-mono text-slate-500 dark:text-slate-400">—</span>
+          </div>
+          <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div id="run_chunk_bar" class="h-full rounded-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div id="run_current" class="mt-3 truncate font-mono text-[12px] text-slate-600 dark:text-slate-400"></div>
+        <div id="run_error" class="mt-2 hidden text-xs text-rose-500"></div>
+        <details class="mt-3 group">
+          <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Log</summary>
+          <pre id="run_log" class="mt-2 max-h-56 overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-[11px] leading-snug text-emerald-200/90"></pre>
+        </details>
       </section>
 
       <p id="config_path_hint" class="mt-4 text-center text-[11px] text-slate-400 dark:text-slate-500"></p>
@@ -200,9 +254,23 @@
       destStatus: $('dest_status'),
       cli: $('cli_preview'),
       copyCli: $('copy_cli'),
-      pasteSrc: $('paste_source'),
-      pasteDst: $('paste_dest'),
+      browseSrc: $('browse_source'),
+      browseDst: $('browse_dest'),
       cfgPath: $('config_path_hint'),
+      runBtn: $('run_btn'),
+      cancelBtn: $('cancel_btn'),
+      runPanel: $('run_panel'),
+      runStateDot: $('run_state_dot'),
+      runStateText: $('run_state_text'),
+      runProgressText: $('run_progress_text'),
+      runElapsed: $('run_elapsed'),
+      runEta: $('run_eta'),
+      runBar: $('run_bar'),
+      runChunkText: $('run_chunk_text'),
+      runChunkBar: $('run_chunk_bar'),
+      runCurrent: $('run_current'),
+      runError: $('run_error'),
+      runLog: $('run_log'),
     };
 
     const shellEscape = (s) => {
@@ -314,16 +382,206 @@
         els.copyCli.textContent = 'copy blocked';
       }
     });
-    const pasteInto = async (el) => {
+    const pickFolderInto = async (el, opts) => {
+      const { prompt, statusEl, btn } = opts;
+      const params = new URLSearchParams({ prompt });
+      const current = el.value.trim();
+      if (current) params.set('default', current);
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Picking…';
       try {
-        const text = (await navigator.clipboard.readText()).trim();
-        if (text) { el.value = text; refreshPreview(); }
-      } catch {}
+        const res = await fetch(`/api/pick-folder?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.cancelled || !data.path) return;
+        el.value = data.path;
+        if (data.info) renderInfo(statusEl, data.info);
+        refreshPreview();
+      } catch (e) {
+        els.saveStatus.innerHTML = `<span class="text-rose-500">picker failed: ${e.message}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
     };
-    els.pasteSrc.addEventListener('click', () => pasteInto(els.source));
-    els.pasteDst.addEventListener('click', () => pasteInto(els.dest));
+    els.browseSrc.addEventListener('click', () =>
+      pickFolderInto(els.source, { prompt: 'Choose the video source folder', statusEl: els.srcStatus, btn: els.browseSrc }));
+    els.browseDst.addEventListener('click', () =>
+      pickFolderInto(els.dest, { prompt: 'Choose the subtitle destination folder', statusEl: els.destStatus, btn: els.browseDst }));
+
+    // --- Run controller --------------------------------------------------
+    function formatDuration(seconds) {
+      if (seconds == null || !isFinite(seconds)) return '—';
+      const s = Math.max(0, Math.round(seconds));
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      if (m < 60) {
+        const rem = s % 60;
+        return rem ? `${m}m ${rem}s` : `${m}m`;
+      }
+      const h = Math.floor(m / 60);
+      const remM = m % 60;
+      return remM ? `${h}h ${remM}m` : `${h}h`;
+    }
+
+    function formatClock(seconds) {
+      if (seconds == null || !isFinite(seconds)) return '0:00';
+      const s = Math.max(0, Math.round(seconds));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+      const ss = String(sec).padStart(2, '0');
+      return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+    }
+
+    const STATE_STYLES = {
+      idle:       { dot: 'bg-slate-400',   label: 'idle' },
+      running:    { dot: 'bg-emerald-500 animate-pulse', label: 'running' },
+      cancelling: { dot: 'bg-amber-500 animate-pulse',   label: 'cancelling…' },
+      cancelled:  { dot: 'bg-amber-500',   label: 'cancelled' },
+      done:       { dot: 'bg-emerald-500', label: 'done' },
+      failed:     { dot: 'bg-rose-500',    label: 'failed' },
+    };
+
+    function renderRun(status) {
+      const isActive = status.state === 'running' || status.state === 'cancelling';
+      const hasHistory = status.state !== 'idle';
+      els.runPanel.hidden = !hasHistory;
+      els.runBtn.hidden = isActive;
+      els.runBtn.disabled = isActive;
+      els.cancelBtn.hidden = !isActive;
+
+      const style = STATE_STYLES[status.state] || STATE_STYLES.idle;
+      els.runStateDot.className = `inline-block h-2 w-2 rounded-full ${style.dot}`;
+      els.runStateText.textContent = style.label;
+
+      const total = status.total || 0;
+      const completed = status.completed || 0;
+      const cur = status.current_index || 0;
+      els.runProgressText.textContent = total ? `${Math.max(completed, cur ? cur - 1 : 0)} / ${total}` : '—';
+      const pct = total ? Math.round((completed / total) * 100) : 0;
+      els.runBar.style.width = `${pct}%`;
+      if (status.state === 'failed' || status.state === 'cancelled') {
+        els.runBar.classList.remove('bg-emerald-500');
+        els.runBar.classList.add(status.state === 'failed' ? 'bg-rose-500' : 'bg-amber-500');
+      } else {
+        els.runBar.classList.remove('bg-rose-500', 'bg-amber-500');
+        els.runBar.classList.add('bg-emerald-500');
+      }
+
+      els.runElapsed.textContent = formatDuration(status.elapsed_s);
+      els.runEta.textContent = status.state === 'running' ? formatDuration(status.eta_s) : '—';
+
+      // Chunk-level progress
+      const dur = status.file_duration_s || 0;
+      const pos = status.chunk_end_s || 0;
+      const chunkPct = dur > 0 ? Math.min(100, Math.round((pos / dur) * 100)) : 0;
+      els.runChunkBar.style.width = `${chunkPct}%`;
+      if (status.state === 'running' && status.current_file) {
+        if (dur > 0) {
+          const idx = status.chunk_count || 0;
+          els.runChunkText.textContent =
+            `${formatClock(pos)} / ${formatClock(dur)} · chunk ${idx}`;
+        } else if (status.chunk_count > 0) {
+          els.runChunkText.textContent = `chunk ${status.chunk_count} · loading duration…`;
+        } else {
+          els.runChunkText.textContent = 'extracting audio…';
+        }
+      } else {
+        els.runChunkText.textContent = '—';
+      }
+      if (status.state === 'failed' || status.state === 'cancelled') {
+        els.runChunkBar.classList.remove('bg-indigo-500');
+        els.runChunkBar.classList.add(status.state === 'failed' ? 'bg-rose-500' : 'bg-amber-500');
+      } else {
+        els.runChunkBar.classList.remove('bg-rose-500', 'bg-amber-500');
+        els.runChunkBar.classList.add('bg-indigo-500');
+      }
+
+      if (status.current_file && status.state === 'running') {
+        els.runCurrent.textContent = `▸ ${status.current_file}`;
+      } else if (status.state === 'done') {
+        els.runCurrent.textContent = total ? `✓ wrote ${total} subtitle file${total === 1 ? '' : 's'}` : '✓ done';
+      } else if (status.state === 'cancelled') {
+        els.runCurrent.textContent = '✕ cancelled';
+      } else {
+        els.runCurrent.textContent = '';
+      }
+
+      if (status.error) {
+        els.runError.hidden = false;
+        els.runError.classList.remove('hidden');
+        els.runError.textContent = status.error;
+      } else {
+        els.runError.hidden = true;
+        els.runError.classList.add('hidden');
+      }
+
+      if (Array.isArray(status.log_tail)) {
+        const wasNearBottom =
+          els.runLog.scrollHeight - els.runLog.scrollTop - els.runLog.clientHeight < 40;
+        els.runLog.textContent = status.log_tail.join('\n');
+        if (wasNearBottom) els.runLog.scrollTop = els.runLog.scrollHeight;
+      }
+    }
+
+    let pollTimer = null;
+    function schedulePoll(status) {
+      if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      if (status.state === 'running' || status.state === 'cancelling') {
+        pollTimer = setTimeout(pollRun, 1000);
+      }
+    }
+
+    async function pollRun() {
+      try {
+        const res = await fetch('/api/run');
+        const status = await res.json();
+        renderRun(status);
+        schedulePoll(status);
+      } catch (e) {
+        pollTimer = setTimeout(pollRun, 2000);
+      }
+    }
+
+    async function startRun() {
+      els.runBtn.disabled = true;
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(readForm()),
+        });
+        const status = await res.json();
+        renderRun(status);
+        schedulePoll(status);
+      } catch (e) {
+        els.saveStatus.innerHTML = `<span class="text-rose-500">run failed to start: ${e.message}</span>`;
+        els.runBtn.disabled = false;
+      }
+    }
+
+    async function cancelRun() {
+      els.cancelBtn.disabled = true;
+      try {
+        const res = await fetch('/api/run/cancel', { method: 'POST' });
+        const status = await res.json();
+        renderRun(status);
+        schedulePoll(status);
+      } catch (e) {
+        // ignore — next poll will refresh
+      } finally {
+        els.cancelBtn.disabled = false;
+      }
+    }
+
+    els.runBtn.addEventListener('click', startRun);
+    els.cancelBtn.addEventListener('click', cancelRun);
 
     loadConfig();
+    pollRun();
   </script>
 </body>
 </html>

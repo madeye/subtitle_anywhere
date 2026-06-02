@@ -22,12 +22,14 @@ official Hugging Face, with proxy settings loaded from `.env`.
 - Apple silicon GPU for the MLX backend.
 - Enough disk space for the MLX Whisper and MLX translator checkpoints.
 
-Install dependencies:
+Install dependencies with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-cd server
-pip install -r requirements.txt
+uv sync
 ```
+
+This creates a `.venv/` and installs everything pinned in `uv.lock`. Install
+uv first with `brew install uv` (or see the upstream docs).
 
 Install FFmpeg if needed:
 
@@ -37,40 +39,40 @@ brew install ffmpeg
 
 ## Usage
 
-Run from the repository root:
+Run from the repository root with `uv run`:
 
 ```bash
-python server/server.py ~/Movies/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles
+uv run python server/server.py ~/Movies/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles
 ```
 
 Process a whole directory recursively:
 
 ```bash
-python server/server.py ~/Videos --target-lang jpn --overwrite
+uv run python server/server.py ~/Videos --target-lang jpn --overwrite
 ```
 
 Resume a batch without touching completed subtitles:
 
 ```bash
-python server/server.py ~/Videos --output-dir subtitles --skip-existing
+uv run python server/server.py ~/Videos --output-dir subtitles --skip-existing
 ```
 
 Preview a batch without loading the model:
 
 ```bash
-python server/server.py ~/Videos --output-dir subtitles --dry-run
+uv run python server/server.py ~/Videos --output-dir subtitles --dry-run
 ```
 
 Generate source-language subtitles only:
 
 ```bash
-python server/server.py lecture.mov --source-lang eng --no-translate
+uv run python server/server.py lecture.mov --source-lang eng --no-translate
 ```
 
 Run ASR and translation on the default MLX backend:
 
 ```bash
-python server/server.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles
+uv run python server/server.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles
 ```
 
 By default, `mlx-whisper` transcribes audio on MLX and `mlx-lm` translates the
@@ -87,9 +89,13 @@ directories to avoid collisions.
 Chunking options are validated before model load: `--chunk-seconds` and
 `--min-chunk-seconds` must be positive, `--min-chunk-seconds` cannot exceed
 `--chunk-seconds`, and `--silence-threshold` cannot be negative.
-The default inference chunk window is 10 seconds to preserve ASR and translation
-context. Display cues are split afterward with `--cue-seconds` and
-`--max-cue-chars` so one screen does not contain a dense multi-sentence block.
+The default inference chunk window is 28 seconds, matching Whisper's native
+30-second encoder window so each MLX Whisper call processes a near-full
+spectrogram instead of mostly silence padding. Display cues are split afterward
+with `--cue-seconds`, `--max-cue-chars`, and `--max-cue-sentences` so one screen
+does not contain a dense multi-sentence block. The default
+`--max-cue-sentences 1` keeps each on-screen cue to a single sentence; pass `0`
+to disable that cap.
 
 ## Model Downloads
 
@@ -106,12 +112,12 @@ For proxied access, set `HTTP_PROXY` and `HTTPS_PROXY` in `.env`, for example
 explicitly before a batch run:
 
 ```bash
-python server/server.py --check-proxy
-python server/server.py --check-network
-python server/server.py --check-model
-python server/server.py --model-status
-python server/server.py --download-model
-python server/server.py --local-only ~/Videos/*.mp4 --output-dir subtitles
+uv run python server/server.py --check-proxy
+uv run python server/server.py --check-network
+uv run python server/server.py --check-model
+uv run python server/server.py --model-status
+uv run python server/server.py --download-model
+uv run python server/server.py --local-only ~/Videos/*.mp4 --output-dir subtitles
 ```
 
 `--check-proxy` validates HTTP CONNECT support on the configured proxy.
@@ -124,14 +130,14 @@ instead of downloading during a batch run.
 Override proxy settings for one command without editing `.env`:
 
 ```bash
-python server/server.py --proxy http://127.0.0.1:8080 --check-proxy
-python server/server.py --no-proxy --check-network
+uv run python server/server.py --proxy http://127.0.0.1:8080 --check-proxy
+uv run python server/server.py --no-proxy --check-network
 ```
 
 You can also pass local MLX model snapshot directories:
 
 ```bash
-python server/server.py movie.mkv --model ~/.cache/huggingface/hub/models--mlx-community--whisper-tiny/snapshots/<revision>
+uv run python server/server.py movie.mkv --model ~/.cache/huggingface/hub/models--mlx-community--whisper-tiny/snapshots/<revision>
 ```
 
 The MLX Whisper backend accepts the same common aliases and maps them to
@@ -160,22 +166,24 @@ A zero-dependency local web frontend lets you set the source and destination
 folders without remembering CLI flags.
 
 ```bash
-python server/web.py
+uv run python server/web.py
 # open http://127.0.0.1:8765
 ```
 
 Source folder is the only required field; the subtitle destination defaults to
 the same folder (toggle off to point somewhere else). Saved settings live in
 `~/.config/subtitle_anywhere/config.json` (override with
-`SUBTITLE_ANYWHERE_CONFIG`). The page also previews the exact CLI command for
-the current selection so you can copy-paste it into a terminal run.
+`SUBTITLE_ANYWHERE_CONFIG`). The page previews the exact CLI command for the
+current selection so you can copy-paste it into a terminal run, and a **Run**
+button kicks off a batch in-place — the panel below shows live file-by-file
+progress, elapsed time, and an estimated time remaining (in minutes or hours).
 
 ## Development Checks
 
 ```bash
-python -m unittest discover -s tests
-python -m py_compile server/*.py
-python server/server.py --help
+uv run python -m unittest discover -s tests
+uv run python -m py_compile server/*.py
+uv run python server/server.py --help
 ```
 
 For an end-to-end smoke test, run the CLI on a short local video and verify that
