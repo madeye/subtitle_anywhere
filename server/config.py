@@ -21,6 +21,8 @@ class BatchConfig:
     skip_existing: bool = False
     keep_audio: bool = False
     chunk_seconds: float = 10.0
+    cue_seconds: float = 4.0
+    max_cue_chars: int = 90
     min_chunk_seconds: float = 1.0
     silence_threshold: float = 0.003
     work_dir: str = field(

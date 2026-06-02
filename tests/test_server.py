@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 import server
 from hf_utils import LocalSnapshotStatus, ModelInfo, ProxyConnectStatus
+from mlx_whisper_engine import prefer_mlx_gpu
 
 
 class ServerCliTests(unittest.TestCase):
@@ -90,6 +91,8 @@ class ServerCliTests(unittest.TestCase):
         config = server.BatchConfig()
 
         self.assertEqual(config.chunk_seconds, 10.0)
+        self.assertEqual(config.cue_seconds, 4.0)
+        self.assertEqual(config.max_cue_chars, 90)
         self.assertEqual(server.validate_batch_config(config), [])
 
     def test_validate_batch_config_rejects_invalid_timing(self) -> None:
@@ -97,10 +100,14 @@ class ServerCliTests(unittest.TestCase):
             chunk_seconds=0,
             min_chunk_seconds=2,
             silence_threshold=-0.1,
+            cue_seconds=0,
+            max_cue_chars=0,
         )
         errors = server.validate_batch_config(config)
 
         self.assertIn("--chunk-seconds must be greater than 0", errors)
+        self.assertIn("--cue-seconds must be greater than 0", errors)
+        self.assertIn("--max-cue-chars must be greater than 0", errors)
         self.assertIn("--min-chunk-seconds must be less than or equal to --chunk-seconds", errors)
         self.assertIn("--silence-threshold must be greater than or equal to 0", errors)
 
@@ -139,6 +146,23 @@ class ServerCliTests(unittest.TestCase):
         )
 
         self.assertIsNone(server.selected_translator_model(args))
+
+    def test_prefer_mlx_gpu_sets_default_device(self) -> None:
+        class FakeMlx:
+            gpu = "gpu0"
+
+            def __init__(self) -> None:
+                self.selected = "cpu0"
+
+            def set_default_device(self, device: str) -> None:
+                self.selected = device
+
+            def default_device(self) -> str:
+                return self.selected
+
+        fake_mlx = FakeMlx()
+
+        self.assertEqual(prefer_mlx_gpu(fake_mlx), "gpu0")
 
     def test_create_engine_passes_mlx_translator_model(self) -> None:
         config = server.BatchConfig(

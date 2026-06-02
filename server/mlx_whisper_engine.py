@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from seamless import filter_low_content_text
+from seamless import Segment, filter_low_content_text
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,7 @@ class MLXWhisperEngine:
                 "Install dependencies with `pip install -r server/requirements.txt`."
             ) from exc
 
+        mlx_device = prefer_mlx_gpu(mx)
         self.model_id_or_path = resolve_mlx_model_path(
             model_id_or_path or DEFAULT_MLX_WHISPER_MODEL,
             local_only=local_only,
@@ -72,7 +73,7 @@ class MLXWhisperEngine:
         self._translator_tokenizer = None
         self._mx = mx
         self._mlx_whisper = mlx_whisper
-        logger.info("MLX Whisper ready on %s with model %s", mx.default_device(), self.model_id_or_path)
+        logger.info("MLX Whisper ready on %s with model %s", mlx_device, self.model_id_or_path)
 
     def transcribe_translate(
         self,
@@ -102,7 +103,74 @@ class MLXWhisperEngine:
         translated_text = self._run_whisper(audio, source_code, task="translate")
         return source_text, translated_text
 
+    def transcribe_translate_lines(
+        self,
+        audio: np.ndarray,
+        source_lang: str,
+        target_lang: str,
+        translate: bool,
+    ) -> list[Segment]:
+        """Transcribe and translate using Whisper's per-line timestamps.
+
+        Returns one Segment per Whisper line with chunk-relative start/end.
+        """
+        if audio.size == 0:
+            return []
+
+        source_code = normalize_whisper_language_code(source_lang)
+        target_code = normalize_whisper_language_code(target_lang)
+
+        whisper_lines = self._run_whisper_segments(audio, source_code, task="transcribe")
+        if not whisper_lines:
+            return []
+
+        need_translation = translate and target_code != source_code
+        translate_via_whisper = need_translation and not self.translator_model_id
+        if translate_via_whisper and target_code != "en":
+            raise RuntimeError(
+                "The MLX Whisper backend needs --translator-model for non-English translation. "
+                f"Example: --translator-model {DEFAULT_MLX_TRANSLATOR_MODEL}"
+            )
+        translated_lines: list[dict] = []
+        if translate_via_whisper:
+            translated_lines = self._run_whisper_segments(audio, source_code, task="translate")
+
+        results: list[Segment] = []
+        for index, line in enumerate(whisper_lines):
+            source_text = filter_low_content_text(str(line.get("text", "")).strip())
+            if not source_text:
+                continue
+            translated_text = ""
+            if need_translation:
+                if self.translator_model_id:
+                    translated_text = self._translate_text(source_text, source_code, target_code)
+                elif index < len(translated_lines):
+                    translated_text = filter_low_content_text(
+                        str(translated_lines[index].get("text", "")).strip()
+                    )
+            results.append(
+                Segment(
+                    start=float(line.get("start", 0.0)),
+                    end=float(line.get("end", 0.0)),
+                    text=source_text,
+                    language=source_lang,
+                    translated_text=translated_text,
+                )
+            )
+        return results
+
     def _run_whisper(self, audio: np.ndarray, language: str | None, task: str) -> str:
+        result = self._whisper_transcribe(audio, language, task)
+        return filter_low_content_text(str(result.get("text", "")).strip())
+
+    def _run_whisper_segments(
+        self, audio: np.ndarray, language: str | None, task: str
+    ) -> list[dict]:
+        result = self._whisper_transcribe(audio, language, task)
+        segments = result.get("segments") or []
+        return [s for s in segments if isinstance(s, dict)]
+
+    def _whisper_transcribe(self, audio: np.ndarray, language: str | None, task: str) -> dict:
         options: dict[str, object] = {
             "path_or_hf_repo": self.model_id_or_path,
             "verbose": None,
@@ -111,8 +179,7 @@ class MLXWhisperEngine:
         }
         if language:
             options["language"] = language
-        result = self._mlx_whisper.transcribe(audio.astype(np.float32, copy=False), **options)
-        return filter_low_content_text(str(result.get("text", "")).strip())
+        return self._mlx_whisper.transcribe(audio.astype(np.float32, copy=False), **options)
 
     def _translate_text(self, text: str, source_lang: str | None, target_lang: str | None) -> str:
         model, tokenizer = self._load_translator()
@@ -159,6 +226,15 @@ class MLXWhisperEngine:
             logger.info("Loading MLX translator model %s", translator_path)
             self._translator_model, self._translator_tokenizer = load(translator_path)
         return self._translator_model, self._translator_tokenizer
+
+
+def prefer_mlx_gpu(mx) -> str:
+    """Prefer Apple GPU for MLX backends when the runtime exposes it."""
+    gpu = getattr(mx, "gpu", None)
+    set_default_device = getattr(mx, "set_default_device", None)
+    if gpu is not None and callable(set_default_device):
+        set_default_device(gpu)
+    return str(mx.default_device())
 
 
 def resolve_mlx_model_path(model_id_or_path: str, local_only: bool = False) -> str:

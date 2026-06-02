@@ -87,9 +87,9 @@ directories to avoid collisions.
 Chunking options are validated before model load: `--chunk-seconds` and
 `--min-chunk-seconds` must be positive, `--min-chunk-seconds` cannot exceed
 `--chunk-seconds`, and `--silence-threshold` cannot be negative.
-The default chunk window is 10 seconds; shorter chunks generally produce
-better subtitle timing and fewer repeated translation artifacts than long
-25-second windows.
+The default inference chunk window is 10 seconds to preserve ASR and translation
+context. Display cues are split afterward with `--cue-seconds` and
+`--max-cue-chars` so one screen does not contain a dense multi-sentence block.
 
 ## Model Downloads
 
