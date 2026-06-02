@@ -1,51 +1,413 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="h-full scroll-smooth">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Subtitle Anywhere</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Subtitle Anywhere — bilingual SRTs, locally, on Apple silicon</title>
+  <meta name="description" content="Batch-generate bilingual external subtitle files for local videos. Runs entirely on your Mac with MLX Whisper and MLX LLM translation — no cloud, no API keys." />
+  <meta property="og:title" content="Subtitle Anywhere" />
+  <meta property="og:description" content="Local-only bilingual subtitle generation for your video library. MLX-powered, zero cloud." />
+  <meta property="og:type" content="website" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+          },
+          colors: {
+            ink: { 50: '#f7f8fb', 900: '#0b1020' },
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(15,23,42,0.06), 0 6px 24px -8px rgba(15,23,42,0.12)',
+            glow: '0 0 0 1px rgba(16,185,129,0.18), 0 12px 40px -10px rgba(16,185,129,0.35)',
+          },
+        },
+      },
+    }
+  </script>
   <style>
-    body {
-      max-width: 760px;
-      margin: 48px auto;
-      padding: 0 20px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.6;
-      color: #172033;
+    :root { color-scheme: light dark; }
+    html, body { height: 100%; }
+    body { font-feature-settings: 'cv11', 'ss01'; }
+    .grain::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(15,23,42,0.05) 1px, transparent 1px);
+      background-size: 18px 18px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
     }
-    code, pre {
-      background: #f3f5f8;
-      border-radius: 6px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    .dark .grain::before {
+      background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
     }
-    code { padding: 2px 5px; }
-    pre { padding: 16px; overflow-x: auto; }
+    .gradient-text {
+      background: linear-gradient(90deg, #10b981 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .ring-inset-soft { box-shadow: inset 0 0 0 1px rgba(148,163,184,0.18); }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
+    .dot-live { animation: pulse-dot 1.8s ease-in-out infinite; }
   </style>
 </head>
-<body>
-  <h1>Subtitle Anywhere</h1>
-  <p>
-    Batch-generate bilingual external subtitles for local media files with
-    FFmpeg and an MLX Whisper plus MLX LLM backend on Apple GPU.
-  </p>
-  <h2>Quick Start</h2>
-  <pre><code>cd server
-pip install -r requirements.txt
-cd ..
-python server/server.py ~/Videos/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles</code></pre>
-  <h2>MLX Backend</h2>
-  <pre><code>python server/server.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles</code></pre>
-  <p>
-    MLX Whisper handles speech recognition. For non-English translation targets,
-    the CLI loads an MLX text translator such as
-    <code>mlx-community/Qwen3-1.7B-4bit</code>.
-  </p>
-  <h2>Model Download</h2>
-  <pre><code>python server/server.py --download-model</code></pre>
-  <h2>Output</h2>
-  <p>
-    The CLI writes <code>.srt</code> files with source text followed by the
-    translated line, for example <code>movie.zho.srt</code>.
-  </p>
+<body class="h-full bg-ink-50 font-sans text-slate-900 antialiased dark:bg-ink-900 dark:text-slate-100">
+
+  <!-- Nav -->
+  <header class="sticky top-0 z-20 border-b border-slate-200/60 bg-ink-50/80 backdrop-blur dark:border-slate-800/60 dark:bg-ink-900/80">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
+      <a href="#top" class="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <span class="inline-block h-2 w-2 rounded-full bg-emerald-500 dot-live"></span>
+        Subtitle Anywhere
+      </a>
+      <nav class="hidden items-center gap-6 text-sm text-slate-600 sm:flex dark:text-slate-300">
+        <a href="#features" class="transition hover:text-slate-900 dark:hover:text-white">Features</a>
+        <a href="#quickstart" class="transition hover:text-slate-900 dark:hover:text-white">Quick start</a>
+        <a href="#web-ui" class="transition hover:text-slate-900 dark:hover:text-white">Web UI</a>
+        <a href="#output" class="transition hover:text-slate-900 dark:hover:text-white">Output</a>
+      </nav>
+      <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+        <svg viewBox="0 0 16 16" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.49c-2.23.48-2.7-.95-2.7-.95-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.88 2.34.67.07-.52.28-.88.5-1.08-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.62 7.62 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        Star on GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="top" class="relative overflow-hidden">
+    <div class="grain absolute inset-0"></div>
+    <div class="relative mx-auto max-w-6xl px-5 pt-16 pb-20 sm:px-8 sm:pt-24 sm:pb-28">
+      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/60 px-3 py-1 text-xs font-medium uppercase tracking-widest text-slate-500 backdrop-blur dark:border-slate-700/80 dark:bg-slate-900/40 dark:text-slate-400">
+        <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+        100% local · Apple silicon
+      </div>
+      <h1 class="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
+        Bilingual subtitles for your<br />
+        local videos — <span class="gradient-text">offline</span>, on your Mac.
+      </h1>
+      <p class="mt-5 max-w-2xl text-base text-slate-600 sm:text-lg dark:text-slate-400">
+        Subtitle Anywhere extracts audio with FFmpeg, transcribes it with MLX Whisper,
+        and writes bilingual <code class="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[0.9em] dark:bg-slate-800/80">.srt</code>
+        files for IINA, VLC, mpv, or Plex. No cloud, no API keys, no browser extension.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a href="#quickstart"
+           class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+          Get started →
+        </a>
+        <a href="#web-ui"
+           class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+          See the web UI
+        </a>
+        <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+           class="ml-1 text-sm text-slate-500 underline-offset-4 hover:underline dark:text-slate-400">
+          View source
+        </a>
+      </div>
+
+      <!-- Install snippet -->
+      <div class="mt-10 max-w-2xl rounded-2xl bg-slate-950 p-1 shadow-glow ring-1 ring-slate-900/40">
+        <div class="flex items-center gap-2 px-4 py-2 text-[11px] font-medium uppercase tracking-widest text-slate-400">
+          <span class="h-2 w-2 rounded-full bg-rose-400/70"></span>
+          <span class="h-2 w-2 rounded-full bg-amber-400/70"></span>
+          <span class="h-2 w-2 rounded-full bg-emerald-400/70"></span>
+          <span class="ml-2">install</span>
+        </div>
+        <pre class="overflow-x-auto rounded-xl bg-slate-950 px-5 pb-5 text-[13px] leading-relaxed text-emerald-200/90"><span class="text-slate-500"># macOS, Python 3.10+</span>
+<span class="text-slate-400">brew install</span> uv ffmpeg
+<span class="text-slate-400">uv sync</span>
+<span class="text-slate-400">uv run python server/server.py</span> ~/Videos/<span class="text-indigo-300">*.mp4</span> --source-lang eng --target-lang zho</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pillars -->
+  <section class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+    <div class="grid gap-6 sm:grid-cols-3">
+      <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z" stroke-linejoin="round"/></svg>
+        </div>
+        <h3 class="text-base font-semibold">Local-only</h3>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
+          Inference runs entirely on your machine. No telemetry, no cloud upload, no API keys. Your videos never leave your disk.
+        </p>
+      </article>
+      <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" stroke-linejoin="round"/></svg>
+        </div>
+        <h3 class="text-base font-semibold">MLX on Apple GPU</h3>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
+          Whisper transcription and Qwen translation run on the Apple GPU via MLX. A 28-second encoder window keeps the
+          pipeline efficient on M1/M2/M3.
+        </p>
+      </article>
+      <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-300">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 15h6"/></svg>
+        </div>
+        <h3 class="text-base font-semibold">Bilingual SRT, side-by-side</h3>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
+          Every cue carries the source line and the translation, with one sentence per screen by default. Works in IINA, VLC, mpv, and Plex.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+    <div class="mb-10 max-w-2xl">
+      <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Features</div>
+      <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">Built for batch work on a single Mac.</h2>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">Batch any input</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Files, directories, or shell globs. Skip existing outputs, or overwrite on re-runs.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">Smart chunking</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">28-second windows aligned to silence so cuts land between sentences, not mid-word.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">One sentence per cue</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400"><code class="font-mono text-[12px]">--max-cue-sentences 1</code> caps each screen to a single sentence; override per run.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">Hugging Face cache</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Models download once and persist. <code class="font-mono text-[12px]">--local-only</code> hard-fails if cache is missing.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">Proxy aware</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400"><code class="font-mono text-[12px]">.env</code>-loaded HTTP/HTTPS proxies, with <code class="font-mono text-[12px]">--check-proxy</code> and <code class="font-mono text-[12px]">--check-network</code> doctors.</p>
+      </div>
+      <div class="rounded-xl bg-white p-5 ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <h4 class="text-sm font-semibold">uv-managed deps</h4>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Reproducible installs via <code class="font-mono text-[12px]">pyproject.toml</code> + <code class="font-mono text-[12px]">uv.lock</code>. One <code class="font-mono text-[12px]">uv sync</code> and you're ready.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Web UI preview -->
+  <section id="web-ui" class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+    <div class="grid items-start gap-10 lg:grid-cols-2">
+      <div>
+        <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Web UI</div>
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">Run a batch without leaving the browser.</h2>
+        <p class="mt-4 text-slate-600 dark:text-slate-400">
+          A zero-dependency local web frontend ships with the project. Pick your video folder
+          with the native macOS chooser, hit <strong class="font-semibold">Run</strong>, and watch
+          two progress bars — one for files in the batch, one for the audio inside the current
+          file — alongside elapsed time and an estimated time remaining in minutes or hours.
+        </p>
+        <ul class="mt-5 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Native folder picker (no path-typing).</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Saved config in <code class="font-mono text-[12px]">~/.config/subtitle_anywhere/config.json</code>.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Live CLI preview — copy the equivalent terminal command at any time.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Per-chunk progress with <code class="font-mono text-[12px]">mm:ss / mm:ss</code> position inside each file.</li>
+        </ul>
+        <div class="mt-6">
+          <code class="rounded-md bg-slate-900 px-3 py-1.5 font-mono text-[12.5px] text-emerald-200">uv run python server/web.py</code>
+          <span class="ml-3 text-xs text-slate-500 dark:text-slate-400">→ http://127.0.0.1:8765</span>
+        </div>
+      </div>
+
+      <!-- Mock browser frame -->
+      <div class="overflow-hidden rounded-2xl bg-white shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/60 dark:ring-slate-800/80">
+        <div class="flex items-center gap-1.5 border-b border-slate-200/60 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+          <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
+          <span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+          <span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+          <span class="ml-3 rounded-md bg-white px-2 py-0.5 font-mono text-[11px] text-slate-500 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">http://127.0.0.1:8765/</span>
+        </div>
+        <div class="space-y-4 p-5 text-[13px]">
+          <div>
+            <div class="text-xs uppercase tracking-widest text-slate-500">Subtitle Anywhere</div>
+            <div class="mt-1 text-xl font-semibold tracking-tight">Folders</div>
+          </div>
+          <div>
+            <label class="block text-[12px] font-medium">Video source folder</label>
+            <div class="mt-1.5 flex gap-2">
+              <div class="flex-1 truncate rounded-md bg-slate-100 px-2.5 py-1.5 font-mono text-[12px] text-slate-700 ring-inset-soft dark:bg-slate-900 dark:text-slate-300">/Volumes/DATA/videos/Show S03/</div>
+              <button class="rounded-md bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700">Browse…</button>
+            </div>
+            <div class="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">12 videos found</div>
+          </div>
+
+          <!-- Progress card -->
+          <div class="rounded-xl bg-slate-50 p-4 ring-inset-soft dark:bg-slate-900/60">
+            <div class="flex items-baseline justify-between text-[11px]">
+              <div class="flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500 dot-live"></span><span class="font-medium">running</span></div>
+              <div class="text-slate-500 dark:text-slate-400">elapsed <span class="font-mono">4m 12s</span> · ETA <span class="font-mono">31m</span></div>
+            </div>
+            <div class="mt-3 flex items-baseline justify-between text-[11px]">
+              <span class="font-medium">Files</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400">3 / 12</span>
+            </div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div class="h-full rounded-full bg-emerald-500" style="width: 25%"></div>
+            </div>
+            <div class="mt-3 flex items-baseline justify-between text-[11px]">
+              <span class="font-medium">Current file</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400">14:32 / 42:18 · chunk 31</span>
+            </div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div class="h-full rounded-full bg-indigo-500" style="width: 34%"></div>
+            </div>
+            <div class="mt-3 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">▸ S03E04.Cold.Reception.mkv</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick start -->
+  <section id="quickstart" class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+    <div class="mb-10 max-w-2xl">
+      <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Quick start</div>
+      <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">From clone to first SRT in three commands.</h2>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="rounded-xl bg-slate-950 p-5 text-slate-100 shadow-soft">
+        <div class="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">1 · Install</div>
+        <pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed"><span class="text-slate-500"># Homebrew</span>
+brew install uv ffmpeg
+uv sync</pre>
+      </div>
+      <div class="rounded-xl bg-slate-950 p-5 text-slate-100 shadow-soft">
+        <div class="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">2 · Preview</div>
+        <pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed"><span class="text-slate-500"># dry-run, no model load</span>
+uv run python server/server.py \
+  ~/Videos --dry-run</pre>
+      </div>
+      <div class="rounded-xl bg-slate-950 p-5 text-slate-100 shadow-soft">
+        <div class="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">3 · Generate</div>
+        <pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed"><span class="text-slate-500"># EN audio → bilingual EN/中文 SRT</span>
+uv run python server/server.py \
+  ~/Videos \
+  --target-lang zho</pre>
+      </div>
+    </div>
+    <p class="mt-6 text-sm text-slate-600 dark:text-slate-400">
+      Prefer a GUI? Launch the local web UI with <code class="rounded bg-slate-200/60 px-1.5 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">uv run python server/web.py</code> and open
+      <a href="http://127.0.0.1:8765" class="font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-400">http://127.0.0.1:8765</a>.
+    </p>
+  </section>
+
+  <!-- Output -->
+  <section id="output" class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+    <div class="grid items-start gap-10 lg:grid-cols-2">
+      <div>
+        <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Output</div>
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">A clean bilingual SRT, named like the source.</h2>
+        <p class="mt-4 text-slate-600 dark:text-slate-400">
+          Each cue carries the source line followed by the translated line, with timestamps
+          taken from Whisper's per-segment alignment. Output filenames mirror the source —
+          <code class="rounded bg-slate-200/60 px-1.5 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">movie.mp4</code>
+          becomes <code class="rounded bg-slate-200/60 px-1.5 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">movie.zho.srt</code> by default, sitting beside the
+          original so any media player picks it up automatically.
+        </p>
+        <ul class="mt-5 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500"></span>Configurable output directory with <code class="font-mono text-[12px]">--output-dir</code>.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500"></span>Skip existing with <code class="font-mono text-[12px]">--skip-existing</code> for safe re-runs.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500"></span>Source-only mode with <code class="font-mono text-[12px]">--no-translate</code> when you just need ASR.</li>
+        </ul>
+      </div>
+      <div class="rounded-2xl bg-slate-950 p-5 text-slate-100 shadow-soft ring-1 ring-slate-900/40">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="text-xs font-semibold uppercase tracking-widest text-slate-400">movie.zho.srt</div>
+          <div class="font-mono text-[10.5px] text-slate-500">3 cues shown</div>
+        </div>
+<pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed text-emerald-200/90">1
+00:00:01,230 --&gt; 00:00:03,900
+Hello, welcome back.
+<span class="text-indigo-300">你好，欢迎回来。</span>
+
+2
+00:00:04,120 --&gt; 00:00:07,640
+The rain in Spain stays mainly in the plain.
+<span class="text-indigo-300">西班牙的雨主要下在平原上。</span>
+
+3
+00:00:08,000 --&gt; 00:00:10,300
+Roll the credits.
+<span class="text-indigo-300">播放片尾字幕。</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Doctor commands -->
+  <section class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+    <div class="rounded-2xl bg-white p-8 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+      <div class="grid gap-8 md:grid-cols-2">
+        <div>
+          <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Diagnostics</div>
+          <h3 class="text-2xl font-semibold tracking-tight">Verify before you batch.</h3>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Five built-in checks cover the entire model-fetch path: proxy, network, model metadata,
+            local cache, and a forced download. Useful for behind-the-firewall setups or air-gapped runs.
+          </p>
+        </div>
+        <div class="space-y-2 font-mono text-[12.5px]">
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
+            <span class="text-emerald-700 dark:text-emerald-400">--check-proxy</span>
+            <span class="text-slate-500">HTTP CONNECT support</span>
+          </div>
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
+            <span class="text-emerald-700 dark:text-emerald-400">--check-network</span>
+            <span class="text-slate-500">Reach Hugging Face</span>
+          </div>
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
+            <span class="text-emerald-700 dark:text-emerald-400">--check-model</span>
+            <span class="text-slate-500">Model metadata</span>
+          </div>
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
+            <span class="text-emerald-700 dark:text-emerald-400">--model-status</span>
+            <span class="text-slate-500">Local cache</span>
+          </div>
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-900/60">
+            <span class="text-emerald-700 dark:text-emerald-400">--download-model</span>
+            <span class="text-slate-500">Preload weights</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / Footer -->
+  <section class="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+    <div class="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 p-8 text-white shadow-soft sm:p-10 dark:from-slate-100 dark:to-slate-300 dark:text-slate-900">
+      <div class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div class="text-xs font-medium uppercase tracking-widest opacity-70">Ready?</div>
+          <h3 class="mt-1 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">Clone, sync, run. Your Mac handles the rest.</h3>
+        </div>
+        <div class="flex gap-3">
+          <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+            Open the repo →
+          </a>
+          <a href="#quickstart"
+             class="inline-flex items-center gap-2 rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 dark:border-slate-900/30 dark:text-slate-900 dark:hover:bg-slate-900/10">
+            Quick start
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="border-t border-slate-200/60 px-5 py-8 text-center text-[12px] text-slate-500 sm:px-8 dark:border-slate-800/60 dark:text-slate-500">
+    MIT licensed · Local-only · No telemetry · Built with MLX, Whisper, and FFmpeg.
+  </footer>
+
 </body>
 </html>

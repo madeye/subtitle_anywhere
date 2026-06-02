@@ -85,9 +85,15 @@ def main() -> int:
     parser.add_argument("--skip-existing", action="store_true", help="Skip inputs whose target subtitle already exists")
     parser.add_argument("--keep-audio", action="store_true", help="Keep extracted WAV files beside output")
     parser.add_argument("--dry-run", action="store_true", help="Preview batch inputs and output paths without loading the model")
-    parser.add_argument("--chunk-seconds", type=float, default=10.0)
+    parser.add_argument("--chunk-seconds", type=float, default=28.0)
     parser.add_argument("--cue-seconds", type=float, default=4.0, help="Maximum display cue duration after transcription")
     parser.add_argument("--max-cue-chars", type=int, default=90, help="Maximum characters per displayed subtitle line")
+    parser.add_argument(
+        "--max-cue-sentences",
+        type=int,
+        default=1,
+        help="Maximum sentences per displayed cue; 0 disables the cap",
+    )
     parser.add_argument("--min-chunk-seconds", type=float, default=1.0)
     parser.add_argument("--silence-threshold", type=float, default=0.003)
     parser.add_argument("--check-model", action="store_true", help="Check model metadata and exit")
@@ -213,6 +219,7 @@ def main() -> int:
         chunk_seconds=args.chunk_seconds,
         cue_seconds=args.cue_seconds,
         max_cue_chars=args.max_cue_chars,
+        max_cue_sentences=args.max_cue_sentences,
         min_chunk_seconds=args.min_chunk_seconds,
         silence_threshold=args.silence_threshold,
     )
@@ -344,6 +351,8 @@ def validate_batch_config(config: BatchConfig) -> list[str]:
         errors.append("--cue-seconds must be greater than 0")
     if config.max_cue_chars <= 0:
         errors.append("--max-cue-chars must be greater than 0")
+    if config.max_cue_sentences < 0:
+        errors.append("--max-cue-sentences must be greater than or equal to 0")
     if config.min_chunk_seconds <= 0:
         errors.append("--min-chunk-seconds must be greater than 0")
     if config.min_chunk_seconds > config.chunk_seconds:

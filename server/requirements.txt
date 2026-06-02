@@ -1,4 +1,0 @@
-numpy
-huggingface_hub
-mlx-whisper
-mlx-lm

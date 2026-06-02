@@ -1,0 +1,16 @@
+[project]
+name = "subtitle-anywhere"
+version = "0.1.0"
+description = "Batch-generate bilingual external subtitles for local media files."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy",
+    "huggingface_hub",
+    "mlx-whisper",
+    "mlx-lm",
+]
+
+[tool.uv]
+package = false

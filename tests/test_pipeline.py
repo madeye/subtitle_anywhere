@@ -58,6 +58,39 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("First sentence", parts[0].text)
         self.assertIn("第二句", "".join(part.translated_text for part in parts))
 
+    def test_split_segment_for_display_enforces_sentence_cap(self) -> None:
+        segment = Segment(
+            0.0,
+            2.0,
+            "First. Second. Third.",
+            "eng",
+            "甲。乙。丙。",
+        )
+
+        parts = split_segment_for_display(
+            segment, cue_seconds=10.0, max_cue_chars=90, max_cue_sentences=1
+        )
+
+        self.assertEqual(len(parts), 3)
+        self.assertIn("First", parts[0].text)
+        self.assertIn("Second", parts[1].text)
+        self.assertIn("Third", parts[2].text)
+
+    def test_split_segment_for_display_sentence_cap_disabled(self) -> None:
+        segment = Segment(
+            0.0,
+            2.0,
+            "First. Second. Third.",
+            "eng",
+            "甲。乙。丙。",
+        )
+
+        parts = split_segment_for_display(
+            segment, cue_seconds=10.0, max_cue_chars=90, max_cue_sentences=0
+        )
+
+        self.assertEqual(len(parts), 1)
+
     def test_split_text_balanced_breaks_long_words_by_words(self) -> None:
         parts = split_text_balanced("one two three four five six", 3)
 

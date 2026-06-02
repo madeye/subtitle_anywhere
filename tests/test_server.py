@@ -90,9 +90,10 @@ class ServerCliTests(unittest.TestCase):
     def test_validate_batch_config_accepts_defaults(self) -> None:
         config = server.BatchConfig()
 
-        self.assertEqual(config.chunk_seconds, 10.0)
+        self.assertEqual(config.chunk_seconds, 28.0)
         self.assertEqual(config.cue_seconds, 4.0)
         self.assertEqual(config.max_cue_chars, 90)
+        self.assertEqual(config.max_cue_sentences, 1)
         self.assertEqual(server.validate_batch_config(config), [])
 
     def test_validate_batch_config_rejects_invalid_timing(self) -> None:

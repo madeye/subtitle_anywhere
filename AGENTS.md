@@ -14,16 +14,21 @@ This repository is a Python CLI for batch-generating bilingual external subtitle
 
 ## Build, Test, and Development Commands
 
-- `cd server && pip install -r requirements.txt`: install runtime dependencies.
-- `python server/server.py --help`: verify CLI argument wiring.
-- `python server/server.py --check-proxy`: verify the configured proxy.
-- `python server/server.py --check-network`: verify Hugging Face connectivity.
-- `python server/server.py --check-model`: verify default model metadata.
-- `python server/server.py --model-status`: inspect local model cache state.
-- `python server/server.py sample.mp4 --output-dir subtitles --dry-run`: preview input/output paths without loading the model.
-- `python -m py_compile server/*.py`: syntax-check all Python modules.
-- `python -m unittest discover -s tests`: run lightweight regression tests.
-- `python server/server.py sample.mp4 --backend mlx-whisper --source-lang eng --target-lang zho --output-dir subtitles`: run an MLX smoke test.
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). The
+authoritative manifest is `pyproject.toml`; `uv.lock` pins the resolution.
+
+- `uv sync`: create `.venv/` and install runtime dependencies from `uv.lock`.
+- `uv add <pkg>` / `uv remove <pkg>`: edit deps; both update the lockfile.
+- `uv run python server/server.py --help`: verify CLI argument wiring.
+- `uv run python server/server.py --check-proxy`: verify the configured proxy.
+- `uv run python server/server.py --check-network`: verify Hugging Face connectivity.
+- `uv run python server/server.py --check-model`: verify default model metadata.
+- `uv run python server/server.py --model-status`: inspect local model cache state.
+- `uv run python server/server.py sample.mp4 --output-dir subtitles --dry-run`: preview input/output paths without loading the model.
+- `uv run python -m py_compile server/*.py`: syntax-check all Python modules.
+- `uv run python -m unittest discover -s tests`: run lightweight regression tests.
+- `uv run python server/server.py sample.mp4 --backend mlx-whisper --source-lang eng --target-lang zho --output-dir subtitles`: run an MLX smoke test.
+- `uv run python server/web.py`: start the local web UI on http://127.0.0.1:8765.
 
 FFmpeg must be available on `PATH`; install with `brew install ffmpeg` on macOS.
 
