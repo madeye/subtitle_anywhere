@@ -1,400 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subtitle Anywhere - Real-time Subtitles for Any Browser Tab</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitle Anywhere</title>
   <style>
-    :root {
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --border: #334155;
-      --text: #f1f5f9;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --green: #22c55e;
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      max-width: 760px;
+      margin: 48px auto;
+      padding: 0 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.6;
+      color: #172033;
     }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* Hero */
-    .hero {
-      text-align: center;
-      padding: 80px 0 60px;
-    }
-
-    .hero h1 {
-      font-size: 3rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-      background: linear-gradient(135deg, var(--accent), var(--green));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      font-size: 1.25rem;
-      color: var(--muted);
-      max-width: 600px;
-      margin: 0 auto 32px;
-    }
-
-    .badge-row {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 14px 32px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      text-decoration: none;
-      color: var(--bg);
-      background: var(--accent);
-      transition: opacity 0.2s;
-    }
-
-    .btn:hover { opacity: 0.85; }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      margin-left: 12px;
-    }
-
-    .btn-outline:hover { background: rgba(56, 189, 248, 0.1); }
-
-    /* Features */
-    .features {
-      padding: 60px 0;
-    }
-
-    .features h2 {
-      text-align: center;
-      font-size: 2rem;
-      margin-bottom: 40px;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .feature-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-    }
-
-    .feature-card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 8px;
-      color: var(--accent);
-    }
-
-    .feature-card p {
-      font-size: 0.95rem;
-      color: var(--muted);
-    }
-
-    /* How it works */
-    .howto {
-      padding: 60px 0;
-    }
-
-    .howto h2 {
-      text-align: center;
-      font-size: 2rem;
-      margin-bottom: 40px;
-    }
-
-    .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    .step {
-      display: flex;
-      gap: 20px;
-      align-items: flex-start;
-    }
-
-    .step-num {
-      flex-shrink: 0;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: var(--bg);
-      font-weight: 700;
-      font-size: 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .step-content h3 {
-      font-size: 1.1rem;
-      margin-bottom: 4px;
-    }
-
-    .step-content p {
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    .step-content code {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 8px 14px;
-      background: var(--bg);
-      border: 1px solid var(--border);
+    code, pre {
+      background: #f3f5f8;
       border-radius: 6px;
-      font-family: 'SF Mono', Menlo, monospace;
-      font-size: 0.85rem;
-      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
-
-    /* Languages */
-    .languages {
-      padding: 60px 0;
-    }
-
-    .languages h2 {
-      text-align: center;
-      font-size: 2rem;
-      margin-bottom: 12px;
-    }
-
-    .languages .sub {
-      text-align: center;
-      color: var(--muted);
-      margin-bottom: 32px;
-    }
-
-    .lang-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .lang-tag {
-      padding: 8px 16px;
-      border-radius: 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-
-    /* Architecture */
-    .arch {
-      padding: 60px 0;
-    }
-
-    .arch h2 {
-      text-align: center;
-      font-size: 2rem;
-      margin-bottom: 32px;
-    }
-
-    .arch-diagram {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
-      font-family: 'SF Mono', Menlo, monospace;
-      font-size: 0.85rem;
-      line-height: 1.8;
-      overflow-x: auto;
-      white-space: pre;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    /* Footer */
-    .footer {
-      text-align: center;
-      padding: 40px 0;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-
-    .footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    @media (max-width: 600px) {
-      .hero h1 { font-size: 2rem; }
-      .feature-grid { grid-template-columns: 1fr; }
-      .btn-outline { margin-left: 0; margin-top: 12px; }
-    }
+    code { padding: 2px 5px; }
+    pre { padding: 16px; overflow-x: auto; }
   </style>
 </head>
 <body>
-
-  <div class="container">
-
-    <!-- Hero -->
-    <section class="hero">
-      <h1>Subtitle Anywhere</h1>
-      <p>Real-time speech-to-text subtitles with local translation for any browser tab. No API keys, no cloud -- everything runs on your machine.</p>
-      <div class="badge-row">
-        <span class="badge">SenseVoiceSmall ASR</span>
-        <span class="badge">NLLB-200 Translation</span>
-        <span class="badge">INT8 Quantized</span>
-        <span class="badge">200 Languages</span>
-      </div>
-      <a href="https://github.com/madeye/subtitle_anywhere" class="btn">View on GitHub</a>
-      <a href="https://github.com/madeye/subtitle_anywhere/archive/refs/heads/main.zip" class="btn btn-outline">Download</a>
-    </section>
-
-    <!-- Features -->
-    <section class="features">
-      <h2>Features</h2>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Fully Local</h3>
-          <p>All processing happens on your machine. No API keys, no subscriptions, no data sent to the cloud.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Real-time Translation</h3>
-          <p>NLLB-200 translates between 200 languages using an INT8 quantized model (~300MB) via CTranslate2.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Auto Language Detection</h3>
-          <p>SenseVoiceSmall automatically detects the spoken language. Just pick your target language and go.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Stereo Audio Preserved</h3>
-          <p>Original audio quality is untouched. ASR runs on a separate 16kHz stream while you hear full stereo.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- How it works -->
-    <section class="howto">
-      <h2>How to Use</h2>
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h3>Start the server</h3>
-            <p>Install dependencies and launch the WebSocket server. Models download automatically on first run.</p>
-            <code>cd server && pip install -r requirements.txt && python server.py --device mps</code>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h3>Load the extension</h3>
-            <p>Open <strong>chrome://extensions</strong>, enable Developer mode, click "Load unpacked" and select the <strong>extension/</strong> folder.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h3>Pick a target language</h3>
-            <p>Click the Subtitle Anywhere icon in Chrome's toolbar. Choose your translation target from the dropdown (or "None" for transcription only).</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">4</div>
-          <div class="step-content">
-            <h3>Start capture</h3>
-            <p>Click "Start Capture" on any tab playing video or audio. Subtitles appear as an overlay near the bottom of the video.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Languages -->
-    <section class="languages">
-      <h2>Supported Languages</h2>
-      <p class="sub">Source language is auto-detected. Pick any target for translation.</p>
-      <div class="lang-grid">
-        <span class="lang-tag">English</span>
-        <span class="lang-tag">Chinese (中文)</span>
-        <span class="lang-tag">Japanese (日本語)</span>
-        <span class="lang-tag">Korean (한국어)</span>
-        <span class="lang-tag">French</span>
-        <span class="lang-tag">German</span>
-        <span class="lang-tag">Spanish</span>
-        <span class="lang-tag">Portuguese</span>
-        <span class="lang-tag">Russian</span>
-        <span class="lang-tag">Arabic</span>
-        <span class="lang-tag">Hindi</span>
-        <span class="lang-tag">Thai</span>
-        <span class="lang-tag">Vietnamese</span>
-        <span class="lang-tag">Italian</span>
-      </div>
-    </section>
-
-    <!-- Architecture -->
-    <section class="arch">
-      <h2>Architecture</h2>
-      <div class="arch-diagram">
-Browser Tab Audio
-       |
-       | PCM 16kHz (WebSocket)
-       v
-+--------------------+
-| SenseVoiceSmall    |  Speech Recognition
-| Auto Language Det. |  + Language Detection
-+--------------------+
-       |
-       v
-+--------------------+
-| NLLB-200 (INT8)    |  Translation
-| CTranslate2        |  ~300MB model
-+--------------------+
-       |
-       | JSON (original + translated)
-       v
-  Subtitle Overlay</div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <p>MIT License &copy; 2026 Max Lv &middot; <a href="https://github.com/madeye/subtitle_anywhere">GitHub</a></p>
-    </footer>
-
-  </div>
-
+  <h1>Subtitle Anywhere</h1>
+  <p>
+    Batch-generate bilingual external subtitles for local media files with
+    FFmpeg and an MLX Whisper plus MLX LLM backend on Apple GPU.
+  </p>
+  <h2>Quick Start</h2>
+  <pre><code>cd server
+pip install -r requirements.txt
+cd ..
+python server/server.py ~/Videos/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles</code></pre>
+  <h2>MLX Backend</h2>
+  <pre><code>python server/server.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles</code></pre>
+  <p>
+    MLX Whisper handles speech recognition. For non-English translation targets,
+    the CLI loads an MLX text translator such as
+    <code>mlx-community/Qwen3-1.7B-4bit</code>.
+  </p>
+  <h2>Model Download</h2>
+  <pre><code>python server/server.py --download-model</code></pre>
+  <h2>Output</h2>
+  <p>
+    The CLI writes <code>.srt</code> files with source text followed by the
+    translated line, for example <code>movie.zho.srt</code>.
+  </p>
 </body>
 </html>
