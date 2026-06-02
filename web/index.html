@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Subtitle Anywhere</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+          },
+          colors: {
+            ink: { 50: '#f7f8fb', 900: '#0b1020' },
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(15,23,42,0.06), 0 6px 24px -8px rgba(15,23,42,0.12)',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { height: 100%; }
+    body { font-feature-settings: 'cv11', 'ss01'; }
+    /* tiny pulse for save success */
+    @keyframes flash { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+    .flash-in { animation: flash .25s ease-out both; }
+  </style>
+</head>
+<body class="h-full bg-ink-50 text-slate-900 antialiased dark:bg-ink-900 dark:text-slate-100">
+  <div class="mx-auto flex min-h-full max-w-3xl flex-col px-5 py-10 sm:px-8 sm:py-14">
+    <!-- Header -->
+    <header class="mb-10 flex items-start justify-between gap-4">
+      <div>
+        <div class="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          subtitle anywhere
+        </div>
+        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Folders</h1>
+        <p class="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
+          Tell the pipeline where your videos live and where the generated <code class="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">.srt</code> files should land. Same folder by default.
+        </p>
+      </div>
+      <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+         class="hidden shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:shadow-sm sm:block dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800">
+        GitHub →
+      </a>
+    </header>
+
+    <!-- Card -->
+    <main class="flex-1">
+      <form id="config-form" class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 sm:p-8 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <!-- Source -->
+        <section>
+          <div class="flex items-baseline justify-between">
+            <label for="source_folder" class="text-sm font-medium">Video source folder</label>
+            <span id="source_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+          </div>
+          <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="source_folder"
+              name="source_folder"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="/Volumes/DATA/videos/My Show/"
+              class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
+            />
+            <button type="button" id="paste_source"
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
+              Paste
+            </button>
+          </div>
+        </section>
+
+        <!-- Same-as-source toggle -->
+        <section class="mt-6 flex items-center justify-between rounded-xl bg-slate-100/70 px-4 py-3 dark:bg-slate-900/40">
+          <div>
+            <div class="text-sm font-medium">Subtitles land in the same folder</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Turn off to write subtitles to a different folder.</div>
+          </div>
+          <label class="relative inline-flex shrink-0 cursor-pointer items-center">
+            <input id="same_as_source" type="checkbox" class="peer sr-only" checked />
+            <span class="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-emerald-500 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/40 dark:bg-slate-700"></span>
+            <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span>
+          </label>
+        </section>
+
+        <!-- Dest -->
+        <section id="dest_section" class="mt-6 transition-all" hidden>
+          <div class="flex items-baseline justify-between">
+            <label for="dest_folder" class="text-sm font-medium">Subtitle destination folder</label>
+            <span id="dest_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+          </div>
+          <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="dest_folder"
+              name="dest_folder"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="/Volumes/Plex/Subtitles/My Show/"
+              class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
+            />
+            <button type="button" id="paste_dest"
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
+              Paste
+            </button>
+          </div>
+        </section>
+
+        <!-- Language grid -->
+        <section class="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <label for="source_lang" class="block text-sm font-medium">Spoken language</label>
+            <select id="source_lang"
+              class="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50">
+              <option value="eng">English</option>
+              <option value="zho">Chinese</option>
+              <option value="jpn">Japanese</option>
+              <option value="kor">Korean</option>
+              <option value="fra">French</option>
+              <option value="deu">German</option>
+              <option value="spa">Spanish</option>
+            </select>
+          </div>
+          <div>
+            <label for="target_lang" class="block text-sm font-medium">Translate to</label>
+            <select id="target_lang"
+              class="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50">
+              <option value="zho">Chinese</option>
+              <option value="eng">English</option>
+              <option value="jpn">Japanese</option>
+              <option value="kor">Korean</option>
+              <option value="fra">French</option>
+              <option value="deu">German</option>
+              <option value="spa">Spanish</option>
+            </select>
+          </div>
+        </section>
+
+        <!-- Overwrite -->
+        <section class="mt-6 flex items-center gap-3">
+          <input id="overwrite" type="checkbox"
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
+          <label for="overwrite" class="text-sm">Overwrite existing subtitles on re-runs</label>
+        </section>
+
+        <!-- Actions -->
+        <div class="mt-8 flex items-center justify-between">
+          <span id="save_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+          <button type="submit" id="save_btn"
+            class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 active:translate-y-px disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+            Save
+          </button>
+        </div>
+      </form>
+
+      <!-- Generated CLI -->
+      <section class="mt-6 rounded-2xl bg-slate-950 p-5 text-slate-100 shadow-soft ring-1 ring-slate-900/40 sm:p-6 dark:ring-slate-800/80">
+        <div class="mb-3 flex items-center justify-between">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Run command</div>
+          <button id="copy_cli" type="button"
+            class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 transition hover:bg-slate-800">
+            Copy
+          </button>
+        </div>
+        <pre id="cli_preview" class="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[12.5px] leading-relaxed text-emerald-300">python server/server.py</pre>
+      </section>
+
+      <p id="config_path_hint" class="mt-4 text-center text-[11px] text-slate-400 dark:text-slate-500"></p>
+    </main>
+
+    <footer class="mt-10 text-center text-[11px] text-slate-400 dark:text-slate-500">
+      Local-only · no telemetry · zero cloud
+    </footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      form: $('config-form'),
+      source: $('source_folder'),
+      dest: $('dest_folder'),
+      destSection: $('dest_section'),
+      same: $('same_as_source'),
+      srcLang: $('source_lang'),
+      tgtLang: $('target_lang'),
+      overwrite: $('overwrite'),
+      saveBtn: $('save_btn'),
+      saveStatus: $('save_status'),
+      srcStatus: $('source_status'),
+      destStatus: $('dest_status'),
+      cli: $('cli_preview'),
+      copyCli: $('copy_cli'),
+      pasteSrc: $('paste_source'),
+      pasteDst: $('paste_dest'),
+      cfgPath: $('config_path_hint'),
+    };
+
+    const shellEscape = (s) => {
+      if (!s) return '';
+      if (/^[\w@%+=:,.\/-]+$/.test(s)) return s;
+      return `'${s.replace(/'/g, `'\\''`)}'`;
+    };
+
+    function buildCli(cfg) {
+      const src = cfg.source_folder?.trim();
+      if (!src) return 'python server/server.py';
+      const parts = ['python server/server.py', shellEscape(src),
+        '--source-lang', cfg.source_lang || 'eng',
+        '--target-lang', cfg.target_lang || 'zho'];
+      const dest = (cfg.dest_folder || '').trim();
+      if (dest && dest !== src) parts.push('--output-dir', shellEscape(dest));
+      if (cfg.overwrite) parts.push('--overwrite');
+      return parts.join(' ');
+    }
+
+    function renderInfo(el, info) {
+      if (!info?.path) { el.textContent = ''; return; }
+      if (!info.exists) { el.innerHTML = '<span class="text-rose-500">does not exist</span>'; return; }
+      if (!info.is_dir) { el.innerHTML = '<span class="text-rose-500">not a folder</span>'; return; }
+      const n = info.video_count;
+      el.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">${n} video${n === 1 ? '' : 's'} found</span>`;
+    }
+
+    function readForm() {
+      const cfg = {
+        source_folder: els.source.value.trim(),
+        dest_folder: els.same.checked ? '' : els.dest.value.trim(),
+        source_lang: els.srcLang.value,
+        target_lang: els.tgtLang.value,
+        overwrite: els.overwrite.checked,
+      };
+      return cfg;
+    }
+
+    function writeForm(cfg) {
+      els.source.value = cfg.source_folder || '';
+      const sameFolder = !cfg.dest_folder || cfg.dest_folder === cfg.source_folder;
+      els.same.checked = sameFolder;
+      els.dest.value = sameFolder ? '' : (cfg.dest_folder || '');
+      els.destSection.hidden = sameFolder;
+      if (cfg.source_lang) els.srcLang.value = cfg.source_lang;
+      if (cfg.target_lang) els.tgtLang.value = cfg.target_lang;
+      els.overwrite.checked = !!cfg.overwrite;
+    }
+
+    function refreshPreview() {
+      els.cli.textContent = buildCli(readForm());
+    }
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        writeForm(data.config);
+        renderInfo(els.srcStatus, data.source_info);
+        renderInfo(els.destStatus, data.dest_info);
+        els.cfgPath.textContent = `config: ${data.config_path}`;
+      } catch (e) {
+        els.saveStatus.innerHTML = `<span class="text-rose-500">failed to load: ${e.message}</span>`;
+      }
+      refreshPreview();
+    }
+
+    async function saveConfig(ev) {
+      ev?.preventDefault();
+      const cfg = readForm();
+      els.saveBtn.disabled = true;
+      els.saveStatus.textContent = 'saving…';
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cfg),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        writeForm(data.config);
+        renderInfo(els.srcStatus, data.source_info);
+        renderInfo(els.destStatus, data.dest_info);
+        els.saveStatus.innerHTML = `<span class="flash-in text-emerald-600 dark:text-emerald-400">saved ✓</span>`;
+      } catch (e) {
+        els.saveStatus.innerHTML = `<span class="text-rose-500">save failed: ${e.message}</span>`;
+      } finally {
+        els.saveBtn.disabled = false;
+        refreshPreview();
+      }
+    }
+
+    els.same.addEventListener('change', () => {
+      els.destSection.hidden = els.same.checked;
+      refreshPreview();
+    });
+    [els.source, els.dest, els.srcLang, els.tgtLang, els.overwrite].forEach((el) => {
+      el.addEventListener('input', refreshPreview);
+      el.addEventListener('change', refreshPreview);
+    });
+    els.form.addEventListener('submit', saveConfig);
+    els.copyCli.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(els.cli.textContent);
+        els.copyCli.textContent = 'copied';
+        setTimeout(() => (els.copyCli.textContent = 'Copy'), 1200);
+      } catch {
+        els.copyCli.textContent = 'copy blocked';
+      }
+    });
+    const pasteInto = async (el) => {
+      try {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (text) { el.value = text; refreshPreview(); }
+      } catch {}
+    };
+    els.pasteSrc.addEventListener('click', () => pasteInto(els.source));
+    els.pasteDst.addEventListener('click', () => pasteInto(els.dest));
+
+    loadConfig();
+  </script>
+</body>
+</html>

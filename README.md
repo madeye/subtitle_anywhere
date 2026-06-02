@@ -154,6 +154,22 @@ Hello, welcome back.
 Generated lines that are mostly punctuation or spacing are suppressed to avoid
 writing obvious model artifacts into the SRT.
 
+## Web UI
+
+A zero-dependency local web frontend lets you set the source and destination
+folders without remembering CLI flags.
+
+```bash
+python server/web.py
+# open http://127.0.0.1:8765
+```
+
+Source folder is the only required field; the subtitle destination defaults to
+the same folder (toggle off to point somewhere else). Saved settings live in
+`~/.config/subtitle_anywhere/config.json` (override with
+`SUBTITLE_ANYWHERE_CONFIG`). The page also previews the exact CLI command for
+the current selection so you can copy-paste it into a terminal run.
+
 ## Development Checks
 
 ```bash
