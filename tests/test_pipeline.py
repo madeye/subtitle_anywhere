@@ -91,6 +91,21 @@ class PipelineTests(unittest.TestCase):
 
         self.assertEqual(len(parts), 1)
 
+    def test_split_segment_for_display_handles_none_translated_text(self) -> None:
+        segment = Segment(
+            0.0,
+            6.0,
+            "First sentence. Second sentence.",
+            "eng",
+            None,
+        )
+
+        parts = split_segment_for_display(segment, cue_seconds=4.0, max_cue_chars=90)
+
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(" ".join(part.text for part in parts), "First sentence. Second sentence.")
+        self.assertTrue(all(part.translated_text == "" for part in parts))
+
     def test_split_text_balanced_breaks_long_words_by_words(self) -> None:
         parts = split_text_balanced("one two three four five six", 3)
 

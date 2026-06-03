@@ -133,6 +133,9 @@ def split_segment_for_display(
     max_cue_chars: int,
     max_cue_sentences: int = 0,
 ) -> list[Segment]:
+    if segment.translated_text is None:
+        segment = Segment(segment.start, segment.end, segment.text, segment.language, "")
+    translated_text = segment.translated_text
     duration = max(0.0, segment.end - segment.start)
     sentence_count = (
         len(_split_sentence_units(segment.text)) if segment.text else 0
@@ -142,7 +145,7 @@ def split_segment_for_display(
     )
     if (
         duration <= cue_seconds
-        and max(len(segment.text), len(segment.translated_text)) <= max_cue_chars
+        and max(len(segment.text), len(translated_text)) <= max_cue_chars
         and sentence_cap_ok
     ):
         return [segment]
@@ -156,11 +159,11 @@ def split_segment_for_display(
         1,
         math.ceil(duration / cue_seconds),
         math.ceil(len(segment.text) / max_cue_chars) if segment.text else 1,
-        math.ceil(len(segment.translated_text) / max_cue_chars) if segment.translated_text else 1,
+        math.ceil(len(translated_text) / max_cue_chars) if translated_text else 1,
         sentence_parts,
     )
     source_parts = split_text_balanced(segment.text, part_count)
-    translated_parts = split_text_balanced(segment.translated_text, part_count)
+    translated_parts = split_text_balanced(translated_text, part_count)
     part_count = max(len(source_parts), len(translated_parts))
     source_parts.extend([""] * (part_count - len(source_parts)))
     translated_parts.extend([""] * (part_count - len(translated_parts)))
