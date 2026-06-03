@@ -28,6 +28,7 @@ from mlx_whisper_engine import (
     normalize_whisper_language_code,
     resolve_mlx_model_path,
 )
+from audio_utils import find_external_subtitles, langs_match, probe_subtitle_languages
 from pipeline import SubtitlePipeline, output_path_for
 from seamless import SeamlessM4TEngine
 
@@ -244,8 +245,8 @@ def main() -> int:
     if args.dry_run:
         print_dry_run(inputs, config, skipped_existing)
         return 0
-    for input_path, output_path in skipped_existing:
-        print(f"skip existing: {input_path} -> {output_path}")
+    for input_path, reason in skipped_existing:
+        print(f"skip: {input_path} ({reason})")
     if not inputs:
         logger.info("No inputs to process after skipping existing outputs")
         return 0
@@ -362,31 +363,45 @@ def validate_batch_config(config: BatchConfig) -> list[str]:
     return errors
 
 
-def filter_existing_outputs(inputs: list[Path], config: BatchConfig) -> tuple[list[Path], list[tuple[Path, Path]]]:
+def filter_existing_outputs(inputs: list[Path], config: BatchConfig) -> tuple[list[Path], list[tuple[Path, str]]]:
     if config.overwrite or not config.skip_existing:
         return inputs, []
     remaining: list[Path] = []
-    skipped: list[tuple[Path, Path]] = []
+    skipped: list[tuple[Path, str]] = []
     for input_path in inputs:
-        output_path = output_path_for(input_path, config)
-        if output_path.exists():
-            skipped.append((input_path, output_path))
+        reason = _skip_reason(input_path, config)
+        if reason:
+            skipped.append((input_path, reason))
         else:
             remaining.append(input_path)
     return remaining, skipped
 
 
-def print_dry_run(inputs: list[Path], config: BatchConfig, skipped_existing: list[tuple[Path, Path]] | None = None) -> None:
+def _skip_reason(input_path: Path, config: BatchConfig) -> str | None:
+    output_path = output_path_for(input_path, config)
+    if output_path.exists():
+        return f"output exists: {output_path}"
+    ext_sub = find_external_subtitles(input_path, config.target_lang)
+    if ext_sub is not None:
+        return f"external subtitle: {ext_sub.name}"
+    embedded_langs = probe_subtitle_languages(input_path)
+    for lang in embedded_langs:
+        if langs_match(lang, config.target_lang):
+            return f"embedded subtitle: {lang}"
+    return None
+
+
+def print_dry_run(inputs: list[Path], config: BatchConfig, skipped_existing: list[tuple[Path, str]] | None = None) -> None:
     skipped_existing = skipped_existing or []
     print(
-        f"inputs={len(inputs)} skipped_existing={len(skipped_existing)} "
+        f"inputs={len(inputs)} skipped={len(skipped_existing)} "
         f"backend={config.backend} model={config.model_id} "
         f"translator={config.translator_model_id or 'none'} "
         f"translate={config.translate} source={config.source_lang} target={config.target_lang} "
         f"chunk_seconds={config.chunk_seconds} cue_seconds={config.cue_seconds}"
     )
-    for input_path, output_path in skipped_existing:
-        print(f"skip existing: {input_path} -> {output_path}")
+    for input_path, reason in skipped_existing:
+        print(f"skip: {input_path} ({reason})")
     for input_path in inputs:
         print(f"{input_path} -> {output_path_for(input_path, config)}")
 

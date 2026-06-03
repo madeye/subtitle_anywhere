@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -70,7 +72,9 @@ class ServerCliTests(unittest.TestCase):
             remaining, skipped = server.filter_existing_outputs([media], config)
 
         self.assertEqual(remaining, [])
-        self.assertEqual(skipped, [(media, output_path)])
+        self.assertEqual(len(skipped), 1)
+        self.assertEqual(skipped[0][0], media)
+        self.assertIn("output exists", skipped[0][1])
 
     def test_filter_existing_outputs_ignores_existing_when_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -250,7 +254,8 @@ class ServerCliTests(unittest.TestCase):
                         self.assertEqual(server.main(), 0)
 
         mock_engine.assert_not_called()
-        self.assertIn("skip existing:", output.getvalue())
+        self.assertIn("skip:", output.getvalue())
+        self.assertIn("output exists", output.getvalue())
 
     def test_check_model_exits_without_inputs(self) -> None:
         with patch.object(
@@ -378,6 +383,139 @@ class ServerCliTests(unittest.TestCase):
             server.apply_proxy_args(None, True)
             self.assertNotIn("HTTPS_PROXY", os.environ)
             self.assertNotIn("https_proxy", os.environ)
+
+
+    def test_filter_skips_external_sidecar_subtitle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            sidecar = root / "movie.zho.ass"
+            sidecar.write_text("[Script Info]\n", encoding="utf-8")
+            out_dir = root / "out"
+            out_dir.mkdir()
+            config = server.BatchConfig(output_dir=out_dir, skip_existing=True, target_lang="zho")
+
+            remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("external subtitle", skipped[0][1])
+
+    def test_filter_skips_external_sidecar_with_lang_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            sidecar = root / "movie.chi.srt"
+            sidecar.write_text("sub", encoding="utf-8")
+            config = server.BatchConfig(skip_existing=True, target_lang="zho")
+
+            remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertIn("external subtitle", skipped[0][1])
+
+    def test_filter_skips_embedded_subtitle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            config = server.BatchConfig(skip_existing=True, target_lang="zho")
+
+            with patch("server.probe_subtitle_languages", return_value=["chi"]):
+                remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertIn("embedded subtitle", skipped[0][1])
+
+    def test_filter_does_not_skip_unrelated_embedded_lang(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            config = server.BatchConfig(skip_existing=True, target_lang="zho")
+
+            with patch("server.probe_subtitle_languages", return_value=["eng"]):
+                remaining, skipped = server.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [media])
+        self.assertEqual(skipped, [])
+
+
+class AudioUtilsSubtitleTests(unittest.TestCase):
+    def test_langs_match_same_code(self) -> None:
+        from audio_utils import langs_match
+        self.assertTrue(langs_match("eng", "eng"))
+
+    def test_langs_match_aliases(self) -> None:
+        from audio_utils import langs_match
+        self.assertTrue(langs_match("zho", "chi"))
+        self.assertTrue(langs_match("zh", "zho"))
+        self.assertTrue(langs_match("chi", "zh"))
+
+    def test_langs_match_different(self) -> None:
+        from audio_utils import langs_match
+        self.assertFalse(langs_match("eng", "zho"))
+        self.assertFalse(langs_match("jpn", "kor"))
+
+    def test_normalize_lang_unknown_code_passthrough(self) -> None:
+        from audio_utils import normalize_lang
+        self.assertEqual(normalize_lang("xyz"), "xyz")
+
+    def test_find_external_subtitles_returns_match(self) -> None:
+        from audio_utils import find_external_subtitles
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            video = root / "clip.mp4"
+            video.write_text("x", encoding="utf-8")
+            sub = root / "clip.zho.srt"
+            sub.write_text("sub", encoding="utf-8")
+
+            result = find_external_subtitles(video, "zho")
+
+        self.assertEqual(result, sub)
+
+    def test_find_external_subtitles_returns_none_for_wrong_lang(self) -> None:
+        from audio_utils import find_external_subtitles
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            video = root / "clip.mp4"
+            video.write_text("x", encoding="utf-8")
+            sub = root / "clip.eng.srt"
+            sub.write_text("sub", encoding="utf-8")
+
+            result = find_external_subtitles(video, "zho")
+
+        self.assertIsNone(result)
+
+    def test_probe_subtitle_languages_parses_json(self) -> None:
+        from audio_utils import probe_subtitle_languages
+        ffprobe_output = json.dumps({
+            "streams": [
+                {"index": 2, "codec_type": "subtitle", "tags": {"language": "chi"}},
+                {"index": 3, "codec_type": "subtitle", "tags": {"language": "eng"}},
+            ]
+        })
+        with patch("audio_utils.shutil.which", return_value="/usr/bin/ffprobe"):
+            with patch("audio_utils.subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout=ffprobe_output, stderr=""
+                )
+                result = probe_subtitle_languages(Path("/fake/video.mkv"))
+
+        self.assertEqual(result, ["chi", "eng"])
+
+    def test_probe_subtitle_languages_returns_empty_on_failure(self) -> None:
+        from audio_utils import probe_subtitle_languages
+        with patch("audio_utils.shutil.which", return_value="/usr/bin/ffprobe"):
+            with patch("audio_utils.subprocess.run") as mock_run:
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=1, stdout="", stderr="error"
+                )
+                result = probe_subtitle_languages(Path("/fake/video.mkv"))
+
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":
