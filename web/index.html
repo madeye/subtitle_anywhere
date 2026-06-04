@@ -33,6 +33,10 @@
     /* tiny pulse for save success */
     @keyframes flash { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
     .flash-in { animation: flash .25s ease-out both; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+    @keyframes indeterminate { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
+    .bar-indeterminate { width: 25%; animation: indeterminate 1.2s ease-in-out infinite; }
   </style>
 </head>
 <body class="h-full bg-ink-50 text-slate-900 antialiased dark:bg-ink-900 dark:text-slate-100">
@@ -78,6 +82,9 @@
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
               Browse…
             </button>
+          </div>
+          <div id="scan_bar_wrap" class="mt-2 h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" hidden>
+            <div class="bar-indeterminate h-full rounded-full bg-indigo-500"></div>
           </div>
         </section>
 
@@ -253,6 +260,7 @@
       overwrite: $('overwrite'),
       saveBtn: $('save_btn'),
       saveStatus: $('save_status'),
+      scanBar: $('scan_bar_wrap'),
       srcStatus: $('source_status'),
       destStatus: $('dest_status'),
       cli: $('cli_preview'),
@@ -425,6 +433,17 @@
       previewTimer = setTimeout(runPreview, 400);
     }
 
+    function setPreviewLock(locked) {
+      els.source.disabled = locked;
+      els.browseSrc.disabled = locked;
+      els.scanBar.hidden = !locked;
+      if (locked) {
+        els.source.classList.add('opacity-60');
+      } else {
+        els.source.classList.remove('opacity-60');
+      }
+    }
+
     async function runPreview() {
       const cfg = readForm();
       if (!cfg.source_folder) {
@@ -432,7 +451,8 @@
         lastPreview = null;
         return;
       }
-      els.previewStatus.textContent = 'scanning…';
+      setPreviewLock(true);
+      els.previewStatus.innerHTML = '<span class="spinner text-slate-400"></span> <span class="text-slate-400">scanning…</span>';
       try {
         const res = await fetch('/api/run/preview', {
           method: 'POST',
@@ -454,6 +474,8 @@
           : `<span class="text-slate-500">${text}</span>`;
       } catch (e) {
         els.previewStatus.textContent = '';
+      } finally {
+        setPreviewLock(false);
       }
     }
 
