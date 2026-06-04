@@ -14,7 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 import batch
-import server
+import cli
 from config import BatchConfig
 from hf_utils import LocalSnapshotStatus, ModelInfo, ProxyConnectStatus
 from mlx_whisper_engine import prefer_mlx_gpu
@@ -202,7 +202,7 @@ class BatchTests(unittest.TestCase):
 
 class ServerCliTests(unittest.TestCase):
     def test_mlx_whisper_selects_default_translator_for_chinese_target(self) -> None:
-        args = server.argparse.Namespace(
+        args = cli.argparse.Namespace(
             backend="mlx-whisper",
             model=None,
             translator_model=None,
@@ -211,14 +211,14 @@ class ServerCliTests(unittest.TestCase):
             target_lang="zho",
         )
 
-        self.assertEqual(server.selected_model(args), server.DEFAULT_MLX_WHISPER_MODEL)
+        self.assertEqual(cli.selected_model(args), cli.DEFAULT_MLX_WHISPER_MODEL)
         self.assertEqual(
-            server.selected_translator_model(args),
-            server.DEFAULT_MLX_TRANSLATOR_MODEL,
+            cli.selected_translator_model(args),
+            cli.DEFAULT_MLX_TRANSLATOR_MODEL,
         )
 
     def test_mlx_whisper_does_not_need_translator_for_source_only(self) -> None:
-        args = server.argparse.Namespace(
+        args = cli.argparse.Namespace(
             backend="mlx-whisper",
             model=None,
             translator_model=None,
@@ -227,7 +227,7 @@ class ServerCliTests(unittest.TestCase):
             target_lang="zho",
         )
 
-        self.assertIsNone(server.selected_translator_model(args))
+        self.assertIsNone(cli.selected_translator_model(args))
 
     def test_prefer_mlx_gpu_sets_default_device(self) -> None:
         class FakeMlx:
@@ -257,10 +257,10 @@ class ServerCliTests(unittest.TestCase):
                 with patch.object(
                     sys,
                     "argv",
-                    ["server.py", str(media), "--dry-run", "--output-dir", str(root / "out")],
+                    ["cli.py", str(media), "--dry-run", "--output-dir", str(root / "out")],
                 ):
                     with redirect_stdout(output):
-                        self.assertEqual(server.main(), 0)
+                        self.assertEqual(cli.main(), 0)
 
         mock_engine.assert_not_called()
         self.assertIn("inputs=1", output.getvalue())
@@ -280,7 +280,7 @@ class ServerCliTests(unittest.TestCase):
                     sys,
                     "argv",
                     [
-                        "server.py",
+                        "cli.py",
                         str(media),
                         "--backend",
                         "mlx-whisper",
@@ -290,7 +290,7 @@ class ServerCliTests(unittest.TestCase):
                     ],
                 ):
                     with redirect_stdout(output):
-                        self.assertEqual(server.main(), 0)
+                        self.assertEqual(cli.main(), 0)
 
         mock_engine.assert_not_called()
         self.assertIn("backend=mlx-whisper", output.getvalue())
@@ -310,10 +310,10 @@ class ServerCliTests(unittest.TestCase):
                 with patch.object(
                     sys,
                     "argv",
-                    ["server.py", str(media), "--skip-existing", "--output-dir", str(out_dir)],
+                    ["cli.py", str(media), "--skip-existing", "--output-dir", str(out_dir)],
                 ):
                     with redirect_stdout(output):
-                        self.assertEqual(server.main(), 0)
+                        self.assertEqual(cli.main(), 0)
 
         mock_engine.assert_not_called()
         self.assertIn("skip:", output.getvalue())
@@ -321,14 +321,14 @@ class ServerCliTests(unittest.TestCase):
 
     def test_check_model_exits_without_inputs(self) -> None:
         with patch.object(
-            server,
+            cli,
             "get_model_info",
             return_value=ModelInfo("facebook/hf-seamless-m4t-medium", "abc123", True, 10, 1024),
         ) as mock_info:
-            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--check-model"]):
+            with patch.object(sys, "argv", ["cli.py", "--backend", "seamless", "--check-model"]):
                 output = StringIO()
                 with redirect_stdout(output):
-                    self.assertEqual(server.main(), 0)
+                    self.assertEqual(cli.main(), 0)
 
         mock_info.assert_called_once_with("facebook/seamless-m4t-medium")
         self.assertIn("files=10", output.getvalue())
@@ -337,19 +337,19 @@ class ServerCliTests(unittest.TestCase):
     def test_download_model_exits_without_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
-            with patch.object(server, "resolve_model_dir", return_value=target) as mock_resolve:
-                with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--download-model"]):
+            with patch.object(cli, "resolve_model_dir", return_value=target) as mock_resolve:
+                with patch.object(sys, "argv", ["cli.py", "--backend", "seamless", "--download-model"]):
                     with redirect_stdout(StringIO()):
-                        self.assertEqual(server.main(), 0)
+                        self.assertEqual(cli.main(), 0)
 
         mock_resolve.assert_called_once_with("facebook/seamless-m4t-medium", local_only=False)
 
     def test_default_download_model_resolves_mlx_models(self) -> None:
-        with patch.object(server, "resolve_mlx_model_path", side_effect=["/whisper", "/translator"]) as mock_resolve:
-            with patch.object(sys, "argv", ["server.py", "--download-model"]):
+        with patch.object(cli, "resolve_mlx_model_path", side_effect=["/whisper", "/translator"]) as mock_resolve:
+            with patch.object(sys, "argv", ["cli.py", "--download-model"]):
                 output = StringIO()
                 with redirect_stdout(output):
-                    self.assertEqual(server.main(), 0)
+                    self.assertEqual(cli.main(), 0)
 
         self.assertEqual(
             mock_resolve.call_args_list,
@@ -364,32 +364,32 @@ class ServerCliTests(unittest.TestCase):
     def test_download_model_passes_local_only(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
-            with patch.object(server, "resolve_model_dir", return_value=target) as mock_resolve:
-                with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--download-model", "--local-only"]):
+            with patch.object(cli, "resolve_model_dir", return_value=target) as mock_resolve:
+                with patch.object(sys, "argv", ["cli.py", "--backend", "seamless", "--download-model", "--local-only"]):
                     with redirect_stdout(StringIO()):
-                        self.assertEqual(server.main(), 0)
+                        self.assertEqual(cli.main(), 0)
 
         mock_resolve.assert_called_once_with("facebook/seamless-m4t-medium", local_only=True)
 
     def test_check_model_reports_runtime_error_without_traceback(self) -> None:
-        with patch.object(server, "get_model_info", side_effect=RuntimeError("proxy failed")):
-            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--check-model"]):
-                self.assertEqual(server.main(), 1)
+        with patch.object(cli, "get_model_info", side_effect=RuntimeError("proxy failed")):
+            with patch.object(sys, "argv", ["cli.py", "--backend", "seamless", "--check-model"]):
+                self.assertEqual(cli.main(), 1)
 
     def test_default_check_model_reports_mlx_models(self) -> None:
-        with patch.object(sys, "argv", ["server.py", "--check-model"]):
+        with patch.object(sys, "argv", ["cli.py", "--check-model"]):
             output = StringIO()
             with redirect_stdout(output):
-                self.assertEqual(server.main(), 0)
+                self.assertEqual(cli.main(), 0)
 
         self.assertIn("backend=mlx-whisper", output.getvalue())
         self.assertIn("translator=mlx-community/Qwen3-1.7B-4bit", output.getvalue())
 
     def test_check_network_exits_without_inputs(self) -> None:
-        with patch.object(server, "check_network", return_value="ok status=200 url=https://example.test") as mock_check:
-            with patch.object(sys, "argv", ["server.py", "--check-network"]):
+        with patch.object(cli, "check_network", return_value="ok status=200 url=https://example.test") as mock_check:
+            with patch.object(sys, "argv", ["cli.py", "--check-network"]):
                 with redirect_stdout(StringIO()):
-                    self.assertEqual(server.main(), 0)
+                    self.assertEqual(cli.main(), 0)
 
         mock_check.assert_called_once_with()
 
@@ -400,10 +400,10 @@ class ServerCliTests(unittest.TestCase):
             ok=True,
             response="HTTP/1.1 200 Connection established",
         )
-        with patch.object(server, "check_proxy_connect", return_value=status) as mock_check:
-            with patch.object(sys, "argv", ["server.py", "--check-proxy"]):
+        with patch.object(cli, "check_proxy_connect", return_value=status) as mock_check:
+            with patch.object(sys, "argv", ["cli.py", "--check-proxy"]):
                 with redirect_stdout(StringIO()):
-                    self.assertEqual(server.main(), 0)
+                    self.assertEqual(cli.main(), 0)
 
         mock_check.assert_called_once_with()
 
@@ -418,18 +418,18 @@ class ServerCliTests(unittest.TestCase):
             temp_size_bytes=2048,
             has_config=True,
         )
-        with patch.object(server, "get_local_model_status", return_value=[status]) as mock_status:
-            with patch.object(sys, "argv", ["server.py", "--backend", "seamless", "--model-status"]):
+        with patch.object(cli, "get_local_model_status", return_value=[status]) as mock_status:
+            with patch.object(sys, "argv", ["cli.py", "--backend", "seamless", "--model-status"]):
                 output = StringIO()
                 with redirect_stdout(output):
-                    self.assertEqual(server.main(), 0)
+                    self.assertEqual(cli.main(), 0)
 
         mock_status.assert_called_once_with("facebook/seamless-m4t-medium")
         self.assertIn("partial_files=1", output.getvalue())
 
     def test_apply_proxy_args_sets_override_proxy(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            server.apply_proxy_args("http://proxy.test:8080", False)
+            cli.apply_proxy_args("http://proxy.test:8080", False)
             self.assertEqual(os.environ["HTTPS_PROXY"], "http://proxy.test:8080")
             self.assertEqual(os.environ["https_proxy"], "http://proxy.test:8080")
 
@@ -442,7 +442,7 @@ class ServerCliTests(unittest.TestCase):
             },
             clear=True,
         ):
-            server.apply_proxy_args(None, True)
+            cli.apply_proxy_args(None, True)
             self.assertNotIn("HTTPS_PROXY", os.environ)
             self.assertNotIn("https_proxy", os.environ)
 

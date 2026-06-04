@@ -196,7 +196,7 @@
           </div>
         </div>
         <div id="preview_status" class="mb-3 text-xs text-slate-400"></div>
-        <pre id="cli_preview" class="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[12.5px] leading-relaxed text-emerald-300">python server/server.py</pre>
+        <pre id="cli_preview" class="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[12.5px] leading-relaxed text-emerald-300">python server/cli.py</pre>
       </section>
 
       <!-- Run progress -->
@@ -298,8 +298,8 @@
 
     function buildCli(cfg) {
       const src = cfg.source_folder?.trim();
-      if (!src) return 'python server/server.py';
-      const parts = ['python server/server.py', shellEscape(src),
+      if (!src) return 'python server/cli.py';
+      const parts = ['python server/cli.py', shellEscape(src),
         '--source-lang', cfg.source_lang || 'auto',
         '--target-lang', cfg.target_lang || 'zho'];
       const dest = (cfg.dest_folder || '').trim();
