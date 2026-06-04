@@ -123,6 +123,7 @@
             <label for="source_lang" class="block text-sm font-medium">Spoken language</label>
             <select id="source_lang"
               class="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50">
+              <option value="auto">Auto-detect</option>
               <option value="eng">English</option>
               <option value="zho">Chinese</option>
               <option value="jpn">Japanese</option>
@@ -173,6 +174,7 @@
               class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 transition hover:bg-slate-800">
               Copy
             </button>
+            <span id="preview_status" class="text-xs text-slate-400"></span>
             <button id="run_btn" type="button"
               class="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60">
               Run
@@ -258,6 +260,7 @@
       browseSrc: $('browse_source'),
       browseDst: $('browse_dest'),
       cfgPath: $('config_path_hint'),
+      previewStatus: $('preview_status'),
       runBtn: $('run_btn'),
       cancelBtn: $('cancel_btn'),
       runPanel: $('run_panel'),
@@ -284,7 +287,7 @@
       const src = cfg.source_folder?.trim();
       if (!src) return 'python server/server.py';
       const parts = ['python server/server.py', shellEscape(src),
-        '--source-lang', cfg.source_lang || 'eng',
+        '--source-lang', cfg.source_lang || 'auto',
         '--target-lang', cfg.target_lang || 'zho'];
       const dest = (cfg.dest_folder || '').trim();
       if (dest && dest !== src) parts.push('--output-dir', shellEscape(dest));
@@ -338,6 +341,7 @@
         els.saveStatus.innerHTML = `<span class="text-rose-500">failed to load: ${e.message}</span>`;
       }
       refreshPreview();
+      schedulePreview();
     }
 
     async function saveConfig(ev) {
@@ -368,10 +372,11 @@
     els.same.addEventListener('change', () => {
       els.destSection.hidden = els.same.checked;
       refreshPreview();
+      schedulePreview();
     });
     [els.source, els.dest, els.srcLang, els.tgtLang, els.overwrite].forEach((el) => {
-      el.addEventListener('input', refreshPreview);
-      el.addEventListener('change', refreshPreview);
+      el.addEventListener('input', () => { refreshPreview(); schedulePreview(); });
+      el.addEventListener('change', () => { refreshPreview(); schedulePreview(); });
     });
     els.form.addEventListener('submit', saveConfig);
     els.copyCli.addEventListener('click', async () => {
@@ -410,6 +415,47 @@
       pickFolderInto(els.source, { prompt: 'Choose the video source folder', statusEl: els.srcStatus, btn: els.browseSrc }));
     els.browseDst.addEventListener('click', () =>
       pickFolderInto(els.dest, { prompt: 'Choose the subtitle destination folder', statusEl: els.destStatus, btn: els.browseDst }));
+
+    // --- Preview (dry-run) -----------------------------------------------
+    let previewTimer = null;
+    let lastPreview = null;
+
+    function schedulePreview() {
+      if (previewTimer) clearTimeout(previewTimer);
+      previewTimer = setTimeout(runPreview, 400);
+    }
+
+    async function runPreview() {
+      const cfg = readForm();
+      if (!cfg.source_folder) {
+        els.previewStatus.textContent = '';
+        lastPreview = null;
+        return;
+      }
+      els.previewStatus.textContent = 'scanning…';
+      try {
+        const res = await fetch('/api/run/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cfg),
+        });
+        const data = await res.json();
+        lastPreview = data;
+        if (data.error) {
+          els.previewStatus.innerHTML = `<span class="text-rose-400">${data.error}</span>`;
+          return;
+        }
+        const n = data.to_process.length;
+        const s = data.skipped.length;
+        let text = `${n} video${n === 1 ? '' : 's'} to process`;
+        if (s > 0) text += `, ${s} skipped`;
+        els.previewStatus.innerHTML = n > 0
+          ? `<span class="text-emerald-400">${text}</span>`
+          : `<span class="text-slate-500">${text}</span>`;
+      } catch (e) {
+        els.previewStatus.textContent = '';
+      }
+    }
 
     // --- Run controller --------------------------------------------------
     function formatDuration(seconds) {

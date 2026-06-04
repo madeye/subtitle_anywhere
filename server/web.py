@@ -189,6 +189,11 @@ class WebHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/run/cancel":
             self._json(HTTPStatus.OK, get_manager().cancel())
             return
+        if self.path == "/api/run/preview":
+            payload = self._read_json_body()
+            cfg = save_config(payload) if isinstance(payload, dict) else load_config()
+            self._json(HTTPStatus.OK, get_manager().preview(cfg))
+            return
         if self.path == "/api/run":
             payload = self._read_json_body()
             cfg = save_config(payload) if isinstance(payload, dict) else load_config()

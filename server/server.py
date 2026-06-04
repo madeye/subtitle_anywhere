@@ -413,9 +413,9 @@ def print_dry_run(inputs: list[Path], config: BatchConfig, skipped_existing: lis
         f"chunk_seconds={config.chunk_seconds} cue_seconds={config.cue_seconds}"
     )
     for input_path, reason in skipped_existing:
-        print(f"skip: {input_path} ({reason})")
+        print(f"skip\t{input_path}\t{reason}")
     for input_path in inputs:
-        print(f"{input_path} -> {output_path_for(input_path, config)}")
+        print(f"process\t{input_path}\t{output_path_for(input_path, config)}")
 
 
 def apply_proxy_args(proxy: str | None, no_proxy: bool) -> None:
