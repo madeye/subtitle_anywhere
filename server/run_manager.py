@@ -249,7 +249,12 @@ class RunManager:
 
 
     def preview(self, config: dict) -> dict:
-        """Run --dry-run and return structured results."""
+        """Run --dry-run and return structured results.
+
+        Uses a 30-second idle timeout: if no output line arrives within
+        30 seconds the subprocess is killed.  Progress lines emitted by
+        the dry-run keep the timer alive for arbitrarily large folders.
+        """
         cmd_or_error = self._build_command(config)
         if isinstance(cmd_or_error, str):
             return {"error": cmd_or_error, "to_process": [], "skipped": []}
@@ -257,20 +262,37 @@ class RunManager:
         env = dict(os.environ)
         env["PYTHONUNBUFFERED"] = "1"
         try:
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
-                capture_output=True,
-                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 cwd=str(REPO_ROOT),
                 env=env,
-                timeout=600,
+                text=True,
+                bufsize=1,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
+        except OSError as exc:
             return {"error": str(exc), "to_process": [], "skipped": []}
-        if result.returncode != 0:
-            stderr = (result.stderr or result.stdout or "").strip()
-            return {"error": stderr or f"dry-run exited with code {result.returncode}", "to_process": [], "skipped": []}
-        return _parse_dry_run(result.stdout)
+        lines: list[str] = []
+        try:
+            import select
+            while True:
+                ready, _, _ = select.select([proc.stdout], [], [], 30)
+                if not ready:
+                    proc.kill()
+                    return {"error": "scan timed out (no progress for 30s)", "to_process": [], "skipped": []}
+                raw = proc.stdout.readline()
+                if not raw:
+                    break
+                lines.append(raw.rstrip("\n"))
+        except Exception as exc:
+            proc.kill()
+            return {"error": str(exc), "to_process": [], "skipped": []}
+        rc = proc.wait()
+        if rc != 0:
+            output = "\n".join(lines).strip()
+            return {"error": output or f"dry-run exited with code {rc}", "to_process": [], "skipped": []}
+        return _parse_dry_run("\n".join(lines))
 
 
 def _parse_dry_run(output: str) -> dict:

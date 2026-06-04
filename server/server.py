@@ -234,7 +234,7 @@ def main() -> int:
         for error in validation_errors:
             logger.error("%s", error)
         return 2
-    inputs, skipped_existing = filter_existing_outputs(inputs, config)
+    inputs, skipped_existing = filter_existing_outputs(inputs, config, progress=args.dry_run)
     collisions = find_output_collisions(inputs, config)
     if collisions:
         for output_path, input_paths in collisions.items():
@@ -375,12 +375,15 @@ def validate_batch_config(config: BatchConfig) -> list[str]:
     return errors
 
 
-def filter_existing_outputs(inputs: list[Path], config: BatchConfig) -> tuple[list[Path], list[tuple[Path, str]]]:
+def filter_existing_outputs(inputs: list[Path], config: BatchConfig, progress: bool = False) -> tuple[list[Path], list[tuple[Path, str]]]:
     if config.overwrite or not config.skip_existing:
         return inputs, []
+    total = len(inputs)
     remaining: list[Path] = []
     skipped: list[tuple[Path, str]] = []
-    for input_path in inputs:
+    for i, input_path in enumerate(inputs):
+        if progress:
+            print(f"progress\t{i + 1}\t{total}", flush=True)
         reason = _skip_reason(input_path, config)
         if reason:
             skipped.append((input_path, reason))
