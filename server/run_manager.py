@@ -263,7 +263,7 @@ class RunManager:
                 text=True,
                 cwd=str(REPO_ROOT),
                 env=env,
-                timeout=60,
+                timeout=600,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {"error": str(exc), "to_process": [], "skipped": []}
