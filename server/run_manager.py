@@ -1,7 +1,9 @@
 """Single-run background controller for the web UI.
 
-Spawns ``server/server.py`` as a subprocess, parses its log output to track
-file-level progress, and exposes a thread-safe status dict for polling.
+Runs the subtitle pipeline in-process so that the MLX engine (and its
+loaded model weights) stay warm across consecutive runs.  The dry-run
+preview still shells out to ``server/server.py --dry-run`` because it
+never needs the models.
 """
 
 from __future__ import annotations
@@ -9,12 +11,16 @@ from __future__ import annotations
 import logging
 import os
 import re
+import select
 import subprocess
 import sys
 import threading
 import time
 from collections import deque
 from pathlib import Path
+
+from config import BatchConfig
+from pipeline import SubtitlePipeline, output_path_for
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +29,12 @@ SERVER_SCRIPT = REPO_ROOT / "server" / "server.py"
 LOG_BUFFER_LINES = 400
 LOG_TAIL_LINES = 80
 
-PROCESSING_RE = re.compile(r"\[(\d+)/(\d+)\] Processing (.+)")
-COMPLETED_RE = re.compile(r"^(.+\.srt) \((\d+) segments\)\s*$")
-NO_INPUTS_RE = re.compile(r"No supported input media files found")
-DURATION_RE = re.compile(r"Audio duration ([\d.]+)s")
-CHUNK_RE = re.compile(r"Processing ([\d.]+)s-([\d.]+)s")
-
 
 class RunManager:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._proc: subprocess.Popen | None = None
-        self._reader: threading.Thread | None = None
+        self._thread: threading.Thread | None = None
+        self._cancel_event = threading.Event()
         self._state: str = "idle"
         self._error: str = ""
         self._exit_code: int | None = None
@@ -51,6 +51,8 @@ class RunManager:
         self._chunk_count: int = 0
         self._log: deque[str] = deque(maxlen=LOG_BUFFER_LINES)
         self._cmd: list[str] = []
+        self._engine: object | None = None
+        self._engine_key: tuple | None = None
         self._preview_proc: subprocess.Popen | None = None
         self._preview_state: str = "idle"
         self._preview_error: str = ""
@@ -58,50 +60,51 @@ class RunManager:
         self._preview_lines: list[str] = []
         self._preview_result: dict | None = None
 
+    def _log_line(self, msg: str) -> None:
+        self._log.append(msg)
+
+    def _get_or_create_engine(self, config: BatchConfig):
+        key = (config.backend, config.model_id, config.translator_model_id, config.local_only, config.device)
+        if self._engine is not None and self._engine_key == key:
+            return self._engine
+        from server import create_engine
+        self._engine = create_engine(config)
+        self._engine_key = key
+        return self._engine
+
     def start(self, config: dict) -> dict:
         with self._lock:
-            if self._proc is not None and self._proc.poll() is None:
-                return self._status_locked()
-            cmd_or_error = self._build_command(config)
-            if isinstance(cmd_or_error, str):
-                self._reset_locked()
-                self._state = "failed"
-                self._error = cmd_or_error
-                self._finished_at = time.monotonic()
+            if self._thread is not None and self._thread.is_alive():
                 return self._status_locked()
             self._reset_locked()
-            self._cmd = cmd_or_error
-            env = dict(os.environ)
-            env["PYTHONUNBUFFERED"] = "1"
-            try:
-                self._proc = subprocess.Popen(
-                    cmd_or_error,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    cwd=str(REPO_ROOT),
-                    env=env,
-                    text=True,
-                    bufsize=1,
-                )
-            except OSError as exc:
+            source = (config.get("source_folder") or "").strip()
+            if not source:
                 self._state = "failed"
-                self._error = str(exc)
+                self._error = "source folder is empty — set it in the form above first"
                 self._finished_at = time.monotonic()
                 return self._status_locked()
+            source_path = Path(source).expanduser()
+            if not source_path.is_dir():
+                self._state = "failed"
+                self._error = f"source folder does not exist: {source_path}"
+                self._finished_at = time.monotonic()
+                return self._status_locked()
+
+            batch_config = self._build_batch_config(config, source_path)
             self._state = "running"
             self._started_at = time.monotonic()
-            self._log.append("$ " + " ".join(cmd_or_error))
-            self._reader = threading.Thread(target=self._read_loop, daemon=True)
-            self._reader.start()
+            self._cancel_event.clear()
+            self._log_line(f"Starting in-process run: source={source_path}")
+            self._thread = threading.Thread(
+                target=self._run_pipeline, args=(batch_config, source_path), daemon=True
+            )
+            self._thread.start()
             return self._status_locked()
 
     def cancel(self) -> dict:
         with self._lock:
-            if self._proc is not None and self._proc.poll() is None:
-                try:
-                    self._proc.terminate()
-                except OSError as exc:
-                    logger.warning("terminate failed: %s", exc)
+            if self._thread is not None and self._thread.is_alive():
+                self._cancel_event.set()
                 if self._state == "running":
                     self._state = "cancelling"
             return self._status_locked()
@@ -111,8 +114,8 @@ class RunManager:
             return self._status_locked()
 
     def _reset_locked(self) -> None:
-        self._proc = None
-        self._reader = None
+        self._thread = None
+        self._cancel_event = threading.Event()
         self._state = "idle"
         self._error = ""
         self._exit_code = None
@@ -130,94 +133,124 @@ class RunManager:
         self._log.clear()
         self._cmd = []
 
-    def _build_command(self, config: dict):
-        source = (config.get("source_folder") or "").strip()
-        if not source:
-            return "source folder is empty — set it in the form above first"
-        source_path = Path(source).expanduser()
-        if not source_path.is_dir():
-            return f"source folder does not exist: {source_path}"
-        cmd = [
-            sys.executable,
-            str(SERVER_SCRIPT),
-            str(source_path),
-            "--source-lang",
-            (config.get("source_lang") or "auto").strip(),
-            "--target-lang",
-            (config.get("target_lang") or "zho").strip(),
-            "--log-level",
-            "INFO",
-        ]
+    def _build_batch_config(self, config: dict, source_path: Path) -> BatchConfig:
         dest = (config.get("dest_folder") or "").strip()
-        if dest and dest != source:
-            cmd.extend(["--output-dir", str(Path(dest).expanduser())])
-        if config.get("overwrite"):
-            cmd.append("--overwrite")
-        else:
-            cmd.append("--skip-existing")
-        return cmd
+        output_dir = Path(dest).expanduser() if dest and dest != str(source_path) else None
+        overwrite = bool(config.get("overwrite"))
+        return BatchConfig(
+            source_lang=(config.get("source_lang") or "auto").strip(),
+            target_lang=(config.get("target_lang") or "zho").strip(),
+            output_dir=output_dir,
+            overwrite=overwrite,
+            skip_existing=not overwrite,
+        )
 
-    def _read_loop(self) -> None:
-        proc = self._proc
-        if proc is None or proc.stdout is None:
-            return
+    def _run_pipeline(self, config: BatchConfig, source_path: Path) -> None:
+        from server import collect_inputs, create_engine, filter_existing_outputs, find_output_collisions, validate_batch_config
+
         try:
-            for raw in proc.stdout:
-                line = raw.rstrip("\n")
-                with self._lock:
-                    self._log.append(line)
-                    self._consume_line_locked(line)
-        except Exception as exc:
-            logger.warning("run output reader error: %s", exc)
-        rc = proc.wait()
-        with self._lock:
-            if self._proc is not proc:
-                return
-            self._finished_at = time.monotonic()
-            self._exit_code = rc
-            if self._state == "cancelling":
-                self._state = "cancelled"
-            elif rc == 0:
-                self._state = "done"
-                if self._total > 0:
-                    self._completed = self._total
-            else:
-                self._state = "failed"
-                if not self._error:
-                    self._error = f"process exited with code {rc}"
+            with self._lock:
+                self._log_line("Collecting input files...")
 
-    def _consume_line_locked(self, line: str) -> None:
-        m = PROCESSING_RE.search(line)
-        if m:
-            self._current_index = int(m.group(1))
-            self._total = int(m.group(2))
-            self._current_file = Path(m.group(3)).name
-            self._file_duration_s = 0.0
-            self._chunk_start_s = 0.0
-            self._chunk_end_s = 0.0
-            self._chunk_count = 0
-            if self._first_file_started_at is None:
-                self._first_file_started_at = time.monotonic()
-            return
-        m = DURATION_RE.search(line)
-        if m:
-            self._file_duration_s = float(m.group(1))
-            return
-        m = CHUNK_RE.search(line)
-        if m:
-            self._chunk_start_s = float(m.group(1))
-            self._chunk_end_s = float(m.group(2))
-            self._chunk_count += 1
-            return
-        m = COMPLETED_RE.match(line)
-        if m and self._current_index > 0:
-            self._completed = max(self._completed, self._current_index)
-            if self._file_duration_s > 0:
-                self._chunk_start_s = self._file_duration_s
-                self._chunk_end_s = self._file_duration_s
-            return
-        if NO_INPUTS_RE.search(line):
-            self._error = "no supported media files in the source folder"
+            inputs = collect_inputs([str(source_path)])
+            if not inputs:
+                with self._lock:
+                    self._state = "failed"
+                    self._error = "no supported media files in the source folder"
+                    self._finished_at = time.monotonic()
+                return
+
+            Path(config.work_dir).mkdir(parents=True, exist_ok=True)
+            if config.output_dir:
+                config.output_dir.mkdir(parents=True, exist_ok=True)
+
+            validation_errors = validate_batch_config(config)
+            if validation_errors:
+                with self._lock:
+                    self._state = "failed"
+                    self._error = "; ".join(validation_errors)
+                    self._finished_at = time.monotonic()
+                return
+
+            inputs, skipped_existing = filter_existing_outputs(inputs, config)
+            collisions = find_output_collisions(inputs, config)
+            if collisions:
+                with self._lock:
+                    self._state = "failed"
+                    self._error = "output path collisions detected"
+                    self._finished_at = time.monotonic()
+                return
+
+            for input_path, reason in skipped_existing:
+                with self._lock:
+                    self._log_line(f"skip: {input_path.name} ({reason})")
+
+            if not inputs:
+                with self._lock:
+                    self._state = "done"
+                    self._finished_at = time.monotonic()
+                    self._log_line("No inputs to process after skipping existing outputs")
+                return
+
+            with self._lock:
+                self._total = len(inputs)
+                self._log_line(f"Loading engine (model weights stay warm across runs)...")
+
+            engine = self._get_or_create_engine(config)
+            pipeline = SubtitlePipeline(engine, config)
+
+            with self._lock:
+                self._log_line(f"Engine ready, processing {len(inputs)} file(s)")
+
+            failed = 0
+            for index, input_path in enumerate(inputs, start=1):
+                if self._cancel_event.is_set():
+                    with self._lock:
+                        self._state = "cancelled"
+                        self._finished_at = time.monotonic()
+                        self._log_line("Cancelled by user")
+                    return
+
+                with self._lock:
+                    self._current_index = index
+                    self._current_file = input_path.name
+                    self._file_duration_s = 0.0
+                    self._chunk_start_s = 0.0
+                    self._chunk_end_s = 0.0
+                    self._chunk_count = 0
+                    if self._first_file_started_at is None:
+                        self._first_file_started_at = time.monotonic()
+                    self._log_line(f"[{index}/{len(inputs)}] Processing {input_path}")
+
+                try:
+                    result = pipeline.process_file(input_path)
+                    with self._lock:
+                        self._completed = index
+                        self._log_line(f"{result.output_path} ({result.segment_count} segments)")
+                except Exception:
+                    failed += 1
+                    logger.exception("Failed: %s", input_path)
+                    with self._lock:
+                        self._log_line(f"FAILED: {input_path}")
+
+            with self._lock:
+                self._finished_at = time.monotonic()
+                if failed:
+                    self._state = "failed"
+                    self._error = f"{failed} of {len(inputs)} files failed"
+                    self._exit_code = 1
+                else:
+                    self._state = "done"
+                    self._completed = len(inputs)
+                    self._exit_code = 0
+
+        except Exception as exc:
+            logger.exception("Pipeline run failed")
+            with self._lock:
+                self._state = "failed"
+                self._error = str(exc)
+                self._finished_at = time.monotonic()
+                self._exit_code = 1
 
     def _status_locked(self) -> dict:
         now = time.monotonic()
@@ -253,13 +286,12 @@ class RunManager:
             "log_tail": list(self._log)[-LOG_TAIL_LINES:],
         }
 
-
     def preview(self, config: dict) -> dict:
         """Start an async dry-run preview. Returns immediately."""
         with self._lock:
             if self._preview_proc is not None and self._preview_proc.poll() is None:
                 return self._preview_status_locked()
-            cmd_or_error = self._build_command(config)
+            cmd_or_error = self._build_preview_command(config)
             if isinstance(cmd_or_error, str):
                 self._preview_reset_locked()
                 self._preview_state = "error"
@@ -301,6 +333,33 @@ class RunManager:
                 self._preview_error = "cancelled"
             return self._preview_status_locked()
 
+    def _build_preview_command(self, config: dict):
+        source = (config.get("source_folder") or "").strip()
+        if not source:
+            return "source folder is empty — set it in the form above first"
+        source_path = Path(source).expanduser()
+        if not source_path.is_dir():
+            return f"source folder does not exist: {source_path}"
+        cmd = [
+            sys.executable,
+            str(SERVER_SCRIPT),
+            str(source_path),
+            "--source-lang",
+            (config.get("source_lang") or "auto").strip(),
+            "--target-lang",
+            (config.get("target_lang") or "zho").strip(),
+            "--log-level",
+            "INFO",
+        ]
+        dest = (config.get("dest_folder") or "").strip()
+        if dest and dest != source:
+            cmd.extend(["--output-dir", str(Path(dest).expanduser())])
+        if config.get("overwrite"):
+            cmd.append("--overwrite")
+        else:
+            cmd.append("--skip-existing")
+        return cmd
+
     def _preview_reset_locked(self) -> None:
         self._preview_proc = None
         self._preview_state = "idle"
@@ -310,7 +369,6 @@ class RunManager:
         self._preview_result = None
 
     def _preview_read_loop(self) -> None:
-        import select
         proc = self._preview_proc
         if proc is None or proc.stdout is None:
             return
