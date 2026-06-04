@@ -131,9 +131,9 @@ class MLXWhisperEngine:
                 "The MLX Whisper backend needs --translator-model for non-English translation. "
                 f"Example: --translator-model {DEFAULT_MLX_TRANSLATOR_MODEL}"
             )
-        translated_lines: list[dict] = []
+        whisper_full_translation = ""
         if translate_via_whisper:
-            translated_lines = self._run_whisper_segments(audio, source_code, task="translate")
+            whisper_full_translation = self._run_whisper(audio, source_code, task="translate")
 
         results: list[Segment] = []
         for index, line in enumerate(whisper_lines):
@@ -144,10 +144,8 @@ class MLXWhisperEngine:
             if need_translation:
                 if self.translator_model_id:
                     translated_text = self._translate_text(source_text, source_code, target_code)
-                elif index < len(translated_lines):
-                    translated_text = filter_low_content_text(
-                        str(translated_lines[index].get("text", "")).strip()
-                    )
+                elif index == 0 and whisper_full_translation:
+                    translated_text = whisper_full_translation
             results.append(
                 Segment(
                     start=float(line.get("start", 0.0)),

@@ -75,24 +75,27 @@ def pick_folder(prompt: str, default: str = "") -> str | None:
 
     Returns the chosen POSIX path, or None if the user cancelled.
     """
-    safe_prompt = prompt.replace('"', '\\"')
     default_clause = ""
     if default:
         default_path = Path(default).expanduser()
         if default_path.is_dir():
-            safe_default = str(default_path).replace('"', '\\"')
-            default_clause = f' default location POSIX file "{safe_default}"'
+            default_clause = f' default location POSIX file (item 2 of argv)'
     script = (
-        f'try\n'
-        f'  set theFolder to choose folder with prompt "{safe_prompt}"{default_clause}\n'
-        f'  return POSIX path of theFolder\n'
-        f'on error number -128\n'
-        f'  return ""\n'
-        f'end try'
+        'on run argv\n'
+        'try\n'
+        f'  set theFolder to choose folder with prompt (item 1 of argv){default_clause}\n'
+        '  return POSIX path of theFolder\n'
+        'on error number -128\n'
+        '  return ""\n'
+        'end try\n'
+        'end run'
     )
+    cmd = ["osascript", "-e", script, prompt]
+    if default_clause:
+        cmd.append(str(Path(default).expanduser()))
     try:
         result = subprocess.run(
-            ["osascript", "-e", script],
+            cmd,
             capture_output=True,
             text=True,
             check=True,
