@@ -13,12 +13,14 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
+import batch
 import server
+from config import BatchConfig
 from hf_utils import LocalSnapshotStatus, ModelInfo, ProxyConnectStatus
 from mlx_whisper_engine import prefer_mlx_gpu
 
 
-class ServerCliTests(unittest.TestCase):
+class BatchTests(unittest.TestCase):
     def test_collect_inputs_expands_directories_globs_and_deduplicates(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -30,7 +32,7 @@ class ServerCliTests(unittest.TestCase):
             for path in (video, audio, ignored):
                 path.write_text("x", encoding="utf-8")
 
-            result = server.collect_inputs([str(root), str(root / "*.mp4")])
+            result = batch.collect_inputs([str(root), str(root / "*.mp4")])
 
             self.assertEqual(result, [video.resolve(), audio.resolve()])
 
@@ -43,8 +45,8 @@ class ServerCliTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("x", encoding="utf-8")
 
-            config = server.BatchConfig(output_dir=root / "out", target_lang="zho")
-            collisions = server.find_output_collisions([first, second], config)
+            config = BatchConfig(output_dir=root / "out", target_lang="zho")
+            collisions = batch.find_output_collisions([first, second], config)
 
         self.assertEqual(len(collisions), 1)
         self.assertEqual(next(iter(collisions.values())), [first, second])
@@ -54,9 +56,9 @@ class ServerCliTests(unittest.TestCase):
             root = Path(td)
             first = root / "a" / "clip-one.mp4"
             second = root / "b" / "clip-two.mkv"
-            config = server.BatchConfig(output_dir=root / "out", target_lang="zho")
+            config = BatchConfig(output_dir=root / "out", target_lang="zho")
 
-            self.assertEqual(server.find_output_collisions([first, second], config), {})
+            self.assertEqual(batch.find_output_collisions([first, second], config), {})
 
     def test_filter_existing_outputs_skips_only_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -67,9 +69,9 @@ class ServerCliTests(unittest.TestCase):
             out_dir.mkdir()
             output_path = out_dir / "clip.zho.srt"
             output_path.write_text("existing", encoding="utf-8")
-            config = server.BatchConfig(output_dir=out_dir, skip_existing=True)
+            config = BatchConfig(output_dir=out_dir, skip_existing=True)
 
-            remaining, skipped = server.filter_existing_outputs([media], config)
+            remaining, skipped = batch.filter_existing_outputs([media], config)
 
         self.assertEqual(remaining, [])
         self.assertEqual(len(skipped), 1)
@@ -84,31 +86,31 @@ class ServerCliTests(unittest.TestCase):
             out_dir = root / "out"
             out_dir.mkdir()
             (out_dir / "clip.zho.srt").write_text("existing", encoding="utf-8")
-            config = server.BatchConfig(output_dir=out_dir, skip_existing=True, overwrite=True)
+            config = BatchConfig(output_dir=out_dir, skip_existing=True, overwrite=True)
 
-            remaining, skipped = server.filter_existing_outputs([media], config)
+            remaining, skipped = batch.filter_existing_outputs([media], config)
 
         self.assertEqual(remaining, [media])
         self.assertEqual(skipped, [])
 
     def test_validate_batch_config_accepts_defaults(self) -> None:
-        config = server.BatchConfig()
+        config = BatchConfig()
 
         self.assertEqual(config.chunk_seconds, 28.0)
         self.assertEqual(config.cue_seconds, 4.0)
         self.assertEqual(config.max_cue_chars, 90)
         self.assertEqual(config.max_cue_sentences, 1)
-        self.assertEqual(server.validate_batch_config(config), [])
+        self.assertEqual(batch.validate_batch_config(config), [])
 
     def test_validate_batch_config_rejects_invalid_timing(self) -> None:
-        config = server.BatchConfig(
+        config = BatchConfig(
             chunk_seconds=0,
             min_chunk_seconds=2,
             silence_threshold=-0.1,
             cue_seconds=0,
             max_cue_chars=0,
         )
-        errors = server.validate_batch_config(config)
+        errors = batch.validate_batch_config(config)
 
         self.assertIn("--chunk-seconds must be greater than 0", errors)
         self.assertIn("--cue-seconds must be greater than 0", errors)
@@ -117,13 +119,88 @@ class ServerCliTests(unittest.TestCase):
         self.assertIn("--silence-threshold must be greater than or equal to 0", errors)
 
     def test_validate_batch_config_rejects_non_positive_min_chunk(self) -> None:
-        config = server.BatchConfig(min_chunk_seconds=0)
+        config = BatchConfig(min_chunk_seconds=0)
 
         self.assertIn(
             "--min-chunk-seconds must be greater than 0",
-            server.validate_batch_config(config),
+            batch.validate_batch_config(config),
         )
 
+    def test_create_engine_passes_mlx_translator_model(self) -> None:
+        config = BatchConfig(
+            backend="mlx-whisper",
+            model_id="mlx-community/whisper-tiny",
+            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
+        )
+
+        with patch.object(batch, "MLXWhisperEngine") as mock_engine:
+            batch.create_engine(config)
+
+        mock_engine.assert_called_once_with(
+            "mlx-community/whisper-tiny",
+            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
+            local_only=False,
+        )
+
+    def test_filter_skips_external_sidecar_subtitle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            sidecar = root / "movie.zho.ass"
+            sidecar.write_text("[Script Info]\n", encoding="utf-8")
+            out_dir = root / "out"
+            out_dir.mkdir()
+            config = BatchConfig(output_dir=out_dir, skip_existing=True, target_lang="zho")
+
+            remaining, skipped = batch.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("external subtitle", skipped[0][1])
+
+    def test_filter_skips_external_sidecar_with_lang_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            sidecar = root / "movie.chi.srt"
+            sidecar.write_text("sub", encoding="utf-8")
+            config = BatchConfig(skip_existing=True, target_lang="zho")
+
+            remaining, skipped = batch.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertIn("external subtitle", skipped[0][1])
+
+    def test_filter_skips_embedded_subtitle(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            config = BatchConfig(skip_existing=True, target_lang="zho")
+
+            with patch("batch.probe_subtitle_languages", return_value=["chi"]):
+                remaining, skipped = batch.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [])
+        self.assertIn("embedded subtitle", skipped[0][1])
+
+    def test_filter_does_not_skip_unrelated_embedded_lang(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / "movie.mp4"
+            media.write_text("x", encoding="utf-8")
+            config = BatchConfig(skip_existing=True, target_lang="zho")
+
+            with patch("batch.probe_subtitle_languages", return_value=["eng"]):
+                remaining, skipped = batch.filter_existing_outputs([media], config)
+
+        self.assertEqual(remaining, [media])
+        self.assertEqual(skipped, [])
+
+
+class ServerCliTests(unittest.TestCase):
     def test_mlx_whisper_selects_default_translator_for_chinese_target(self) -> None:
         args = server.argparse.Namespace(
             backend="mlx-whisper",
@@ -169,22 +246,6 @@ class ServerCliTests(unittest.TestCase):
 
         self.assertEqual(prefer_mlx_gpu(fake_mlx), "gpu0")
 
-    def test_create_engine_passes_mlx_translator_model(self) -> None:
-        config = server.BatchConfig(
-            backend="mlx-whisper",
-            model_id="mlx-community/whisper-tiny",
-            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
-        )
-
-        with patch.object(server, "MLXWhisperEngine") as mock_engine:
-            server.create_engine(config)
-
-        mock_engine.assert_called_once_with(
-            "mlx-community/whisper-tiny",
-            translator_model_id="mlx-community/Qwen3-1.7B-4bit",
-            local_only=False,
-        )
-
     def test_dry_run_prints_mapping_without_model_load(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -192,7 +253,7 @@ class ServerCliTests(unittest.TestCase):
             media.write_text("x", encoding="utf-8")
             output = StringIO()
 
-            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+            with patch.object(batch, "MLXWhisperEngine") as mock_engine:
                 with patch.object(
                     sys,
                     "argv",
@@ -214,7 +275,7 @@ class ServerCliTests(unittest.TestCase):
             media.write_text("x", encoding="utf-8")
             output = StringIO()
 
-            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+            with patch.object(batch, "MLXWhisperEngine") as mock_engine:
                 with patch.object(
                     sys,
                     "argv",
@@ -245,7 +306,7 @@ class ServerCliTests(unittest.TestCase):
             (out_dir / "clip.zho.srt").write_text("existing", encoding="utf-8")
             output = StringIO()
 
-            with patch.object(server, "MLXWhisperEngine") as mock_engine:
+            with patch.object(batch, "MLXWhisperEngine") as mock_engine:
                 with patch.object(
                     sys,
                     "argv",
@@ -384,64 +445,6 @@ class ServerCliTests(unittest.TestCase):
             server.apply_proxy_args(None, True)
             self.assertNotIn("HTTPS_PROXY", os.environ)
             self.assertNotIn("https_proxy", os.environ)
-
-
-    def test_filter_skips_external_sidecar_subtitle(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            media = root / "movie.mp4"
-            media.write_text("x", encoding="utf-8")
-            sidecar = root / "movie.zho.ass"
-            sidecar.write_text("[Script Info]\n", encoding="utf-8")
-            out_dir = root / "out"
-            out_dir.mkdir()
-            config = server.BatchConfig(output_dir=out_dir, skip_existing=True, target_lang="zho")
-
-            remaining, skipped = server.filter_existing_outputs([media], config)
-
-        self.assertEqual(remaining, [])
-        self.assertEqual(len(skipped), 1)
-        self.assertIn("external subtitle", skipped[0][1])
-
-    def test_filter_skips_external_sidecar_with_lang_alias(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            media = root / "movie.mp4"
-            media.write_text("x", encoding="utf-8")
-            sidecar = root / "movie.chi.srt"
-            sidecar.write_text("sub", encoding="utf-8")
-            config = server.BatchConfig(skip_existing=True, target_lang="zho")
-
-            remaining, skipped = server.filter_existing_outputs([media], config)
-
-        self.assertEqual(remaining, [])
-        self.assertIn("external subtitle", skipped[0][1])
-
-    def test_filter_skips_embedded_subtitle(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            media = root / "movie.mp4"
-            media.write_text("x", encoding="utf-8")
-            config = server.BatchConfig(skip_existing=True, target_lang="zho")
-
-            with patch("server.probe_subtitle_languages", return_value=["chi"]):
-                remaining, skipped = server.filter_existing_outputs([media], config)
-
-        self.assertEqual(remaining, [])
-        self.assertIn("embedded subtitle", skipped[0][1])
-
-    def test_filter_does_not_skip_unrelated_embedded_lang(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            media = root / "movie.mp4"
-            media.write_text("x", encoding="utf-8")
-            config = server.BatchConfig(skip_existing=True, target_lang="zho")
-
-            with patch("server.probe_subtitle_languages", return_value=["eng"]):
-                remaining, skipped = server.filter_existing_outputs([media], config)
-
-        self.assertEqual(remaining, [media])
-        self.assertEqual(skipped, [])
 
 
 class AudioUtilsSubtitleTests(unittest.TestCase):
