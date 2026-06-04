@@ -83,7 +83,7 @@
               Browse…
             </button>
           </div>
-          <div id="scan_bar_wrap" class="mt-2 h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" hidden>
+          <div id="scan_bar_wrap" class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" hidden>
             <div class="bar-indeterminate h-full rounded-full bg-indigo-500"></div>
           </div>
         </section>
@@ -451,6 +451,7 @@
         lastPreview = null;
         return;
       }
+      const lockStart = Date.now();
       setPreviewLock(true);
       els.previewStatus.innerHTML = '<span class="spinner text-slate-400"></span> <span class="text-slate-400">scanning…</span>';
       try {
@@ -460,6 +461,8 @@
           body: JSON.stringify(cfg),
         });
         const data = await res.json();
+        const elapsed = Date.now() - lockStart;
+        if (elapsed < 500) await new Promise(r => setTimeout(r, 500 - elapsed));
         lastPreview = data;
         if (data.error) {
           els.previewStatus.innerHTML = `<span class="text-rose-400">${data.error}</span>`;
