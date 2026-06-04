@@ -34,7 +34,7 @@ CONFIG_PATH = Path(
 DEFAULT_CONFIG = {
     "source_folder": "",
     "dest_folder": "",
-    "source_lang": "eng",
+    "source_lang": "auto",
     "target_lang": "zho",
     "overwrite": False,
 }

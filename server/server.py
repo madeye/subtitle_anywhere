@@ -58,7 +58,7 @@ def main() -> int:
     )
     parser.add_argument("inputs", nargs="*", help="Input files, directories, or glob patterns")
     parser.add_argument("-o", "--output-dir", type=Path, help="Directory for generated .srt files")
-    parser.add_argument("--source-lang", default="eng", help="Source language code, e.g. eng, zho, jpn")
+    parser.add_argument("--source-lang", default="auto", help="Source language code (auto, eng, zho, jpn, ...)")
     parser.add_argument("--target-lang", default="zho", help="Target language code, e.g. zho, eng, jpn")
     parser.add_argument(
         "--backend",
@@ -288,8 +288,9 @@ def selected_translator_model(args: argparse.Namespace) -> str | None:
         return args.translator_model
     target_code = normalize_whisper_language_code(args.target_lang)
     source_code = normalize_whisper_language_code(args.source_lang)
-    if not args.no_translate and target_code != source_code and target_code != "en":
-        return DEFAULT_MLX_TRANSLATOR_MODEL
+    if not args.no_translate and target_code != "en":
+        if source_code is None or target_code != source_code:
+            return DEFAULT_MLX_TRANSLATOR_MODEL
     return None
 
 
@@ -349,11 +350,14 @@ def find_output_collisions(inputs: list[Path], config: BatchConfig) -> dict[Path
 
 def validate_batch_config(config: BatchConfig) -> list[str]:
     errors: list[str] = []
+    if config.backend == "seamless" and config.source_lang.lower() in ("auto", ""):
+        errors.append("--backend seamless does not support --source-lang auto; specify a language code explicitly")
     if config.backend == "mlx-whisper":
         source_code = normalize_whisper_language_code(config.source_lang)
         target_code = normalize_whisper_language_code(config.target_lang)
-        if config.translate and target_code != source_code and target_code != "en" and not config.translator_model_id:
-            errors.append("--backend mlx-whisper needs --translator-model for non-English translation")
+        if config.translate and target_code != "en" and not config.translator_model_id:
+            if source_code is None or target_code != source_code:
+                errors.append("--backend mlx-whisper needs --translator-model for non-English translation")
     if config.chunk_seconds <= 0:
         errors.append("--chunk-seconds must be greater than 0")
     if config.cue_seconds <= 0:
