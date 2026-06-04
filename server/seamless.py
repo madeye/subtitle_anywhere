@@ -72,7 +72,7 @@ class SeamlessM4TEngine:
     ) -> tuple[str, str]:
         source_text = self.generate_text(audio, source_lang)
         translated_text = ""
-        if translate and target_lang != source_lang:
+        if translate and normalize_language_code(target_lang) != normalize_language_code(source_lang):
             translated_text = self.generate_text(audio, target_lang)
         return source_text, translated_text
 

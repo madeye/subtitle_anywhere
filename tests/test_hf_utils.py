@@ -118,7 +118,7 @@ class HuggingFaceMirrorTests(unittest.TestCase):
         self.assertEqual(hf_utils.format_bytes(1024), "1.0 KiB")
         self.assertEqual(hf_utils.format_bytes(1024 * 1024 * 3), "3.0 MiB")
 
-    def test_load_env_file_overrides_process_values(self) -> None:
+    def test_load_env_file_does_not_override_existing_values(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             env_path = Path(td) / ".env"
             env_path.write_text(
@@ -128,7 +128,7 @@ class HuggingFaceMirrorTests(unittest.TestCase):
             with patch.dict(os.environ, {"EXISTING": "process-value"}, clear=True):
                 hf_utils.load_env_file(env_path)
                 self.assertEqual(os.environ["HF_TOKEN"], "file-token")
-                self.assertEqual(os.environ["EXISTING"], "file-value")
+                self.assertEqual(os.environ["EXISTING"], "process-value")
 
     def test_load_env_file_mirrors_proxy_case(self) -> None:
         with tempfile.TemporaryDirectory() as td:

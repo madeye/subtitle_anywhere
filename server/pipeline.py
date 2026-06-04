@@ -133,6 +133,14 @@ def split_segment_for_display(
     max_cue_chars: int,
     max_cue_sentences: int = 0,
 ) -> list[Segment]:
+    if segment.translated_text is None:
+        segment = Segment(
+            start=segment.start,
+            end=segment.end,
+            text=segment.text,
+            language=segment.language,
+            translated_text="",
+        )
     duration = max(0.0, segment.end - segment.start)
     sentence_count = (
         len(_split_sentence_units(segment.text)) if segment.text else 0
@@ -238,7 +246,8 @@ def _pack_units(units: list[str], part_count: int, separator: str) -> list[str]:
 
 def render_srt(segments: list[Segment]) -> str:
     blocks: list[str] = []
-    for index, segment in enumerate(segments, start=1):
+    written = 0
+    for segment in segments:
         lines = []
         if segment.text:
             lines.append(segment.text)
@@ -246,10 +255,11 @@ def render_srt(segments: list[Segment]) -> str:
             lines.append(segment.translated_text)
         if not lines:
             continue
+        written += 1
         blocks.append(
             "\n".join(
                 [
-                    str(index),
+                    str(written),
                     f"{format_timestamp(segment.start)} --> {format_timestamp(segment.end)}",
                     *lines,
                 ]
@@ -287,6 +297,9 @@ def iter_audio_chunks(
         )
         chunk = audio[start_sample:end_sample]
         if len(chunk) < min_size:
+            if _rms(chunk) >= silence_threshold:
+                logger.debug("Processing short final chunk %.1fs-%.1fs", start_sample / sample_rate, end_sample / sample_rate)
+                yield start_sample / sample_rate, end_sample / sample_rate, chunk
             break
         if _rms(chunk) >= silence_threshold:
             yield start_sample / sample_rate, end_sample / sample_rate, chunk

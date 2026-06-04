@@ -111,6 +111,8 @@ def main() -> int:
         default="INFO",
     )
     args = parser.parse_args()
+    if args.overwrite and args.skip_existing:
+        parser.error("--overwrite and --skip-existing are mutually exclusive")
 
     logging.basicConfig(
         level=getattr(logging, args.log_level),
@@ -307,8 +309,14 @@ def collect_inputs(patterns: list[str]) -> list[Path]:
     files: list[Path] = []
     seen: set[Path] = set()
     for pattern in patterns:
-        matches = glob.glob(os.path.expanduser(pattern))
-        candidates = [Path(item) for item in matches] if matches else [Path(pattern).expanduser()]
+        matches = glob.glob(os.path.expanduser(pattern), recursive=True)
+        if not matches:
+            fallback = Path(pattern).expanduser()
+            if not fallback.exists():
+                logger.warning("No matches for pattern: %s", pattern)
+            candidates = [fallback]
+        else:
+            candidates = [Path(item) for item in matches]
         for candidate in candidates:
             if candidate.is_dir():
                 for child in sorted(candidate.rglob("*")):

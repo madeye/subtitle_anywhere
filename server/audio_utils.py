@@ -12,7 +12,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".sub", ".vtt"}
+SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".sub", ".vtt")
 
 # Maps variant ISO 639 codes to a canonical form for comparison.
 _LANG_CANONICAL: dict[str, str] = {
@@ -105,9 +105,6 @@ def find_external_subtitles(video_path: Path, target_lang: str) -> Path | None:
             candidate = parent / f"{stem}.{lang_code}{ext}"
             if candidate.is_file():
                 return candidate
-        bare = parent / f"{stem}{ext}"
-        if bare.is_file():
-            return bare
     return None
 
 

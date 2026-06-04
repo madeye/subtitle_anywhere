@@ -165,6 +165,8 @@ class RunManager:
             logger.warning("run output reader error: %s", exc)
         rc = proc.wait()
         with self._lock:
+            if self._proc is not proc:
+                return
             self._finished_at = time.monotonic()
             self._exit_code = rc
             if self._state == "cancelling":

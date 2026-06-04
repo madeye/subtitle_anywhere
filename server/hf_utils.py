@@ -378,14 +378,21 @@ def _download_file(model_id: str, revision: str, filename: str, destination: Pat
     temp_path.replace(destination)
 
 
+_env_loaded: bool = False
+
+
 def load_env_file(path: Path | None = None) -> None:
     """Load simple KEY=VALUE pairs from .env.
 
-    Repo-local .env is treated as authoritative for model download settings so
-    inherited shell defaults do not accidentally route downloads elsewhere.
+    Only supplies values for keys not already present in the environment.
     """
+    global _env_loaded
+    if _env_loaded and path is None:
+        return
     env_path = path or _default_env_path()
     if not env_path.exists():
+        if path is None:
+            _env_loaded = True
         return
     for line in env_path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
@@ -397,10 +404,12 @@ def load_env_file(path: Path | None = None) -> None:
         if os.environ.get(PROXY_OVERRIDE_ENV) and key in PROXY_ENV_KEYS:
             continue
         if key:
-            os.environ[key] = value
+            os.environ.setdefault(key, value)
             paired_key = PROXY_ENV_PAIRS.get(key)
             if paired_key:
-                os.environ[paired_key] = value
+                os.environ.setdefault(paired_key, value)
+    if path is None:
+        _env_loaded = True
 
 
 def _default_env_path() -> Path:
