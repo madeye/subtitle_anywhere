@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import wave
@@ -16,7 +17,7 @@ SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".sub", ".vtt")
 
 # Maps variant ISO 639 codes to a canonical form for comparison.
 _LANG_CANONICAL: dict[str, str] = {
-    "zh": "zho", "chi": "zho", "zho": "zho",
+    "zh": "zho", "chi": "zho", "zho": "zho", "chs": "zho", "cht": "zho",
     "en": "eng", "eng": "eng",
     "ja": "jpn", "jpn": "jpn",
     "ko": "kor", "kor": "kor",
@@ -63,6 +64,19 @@ def normalize_lang(code: str) -> str:
 
 def langs_match(a: str, b: str) -> bool:
     return normalize_lang(a) == normalize_lang(b)
+
+
+def filename_contains_lang(video_path: Path, target_lang: str) -> str | None:
+    """Check if filename segments contain a known alias for *target_lang*.
+
+    Splits the stem by common separators (. - _) and returns the first
+    matching segment, or None.
+    """
+    target_norm = normalize_lang(target_lang)
+    for segment in re.split(r"[.\-_]", video_path.stem):
+        if segment and normalize_lang(segment) == target_norm:
+            return segment
+    return None
 
 
 def probe_subtitle_languages(video_path: Path) -> list[str]:
