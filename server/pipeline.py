@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-import os
 import math
+import os
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,9 +51,16 @@ class SubtitlePipeline:
         with tempfile.TemporaryDirectory(
             prefix="subtitle_anywhere_", dir=self.config.work_dir
         ) as temp_dir:
+            local_video = Path(temp_dir) / f"src_{input_path.name}"
+            logger.info("Copying %s to local temp", input_path)
+            shutil.copy2(input_path, local_video)
+
             audio_path = Path(temp_dir) / f"{input_path.stem}.wav"
-            logger.info("Extracting audio from %s", input_path)
-            extract_audio(input_path, audio_path)
+            logger.info("Extracting audio from %s", local_video)
+            extract_audio(local_video, audio_path)
+
+            local_video.unlink()
+            logger.info("Removed local copy %s", local_video)
 
             audio = load_wav(str(audio_path))
             logger.info("Audio duration %.1fs", len(audio) / 16_000)
