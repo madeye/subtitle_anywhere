@@ -42,37 +42,37 @@ brew install ffmpeg
 Run from the repository root with `uv run`:
 
 ```bash
-uv run python server/server.py ~/Movies/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles
+uv run python server/cli.py ~/Movies/*.mp4 --source-lang eng --target-lang zho --output-dir subtitles
 ```
 
 Process a whole directory recursively:
 
 ```bash
-uv run python server/server.py ~/Videos --target-lang jpn --overwrite
+uv run python server/cli.py ~/Videos --target-lang jpn --overwrite
 ```
 
 Resume a batch without touching completed subtitles:
 
 ```bash
-uv run python server/server.py ~/Videos --output-dir subtitles --skip-existing
+uv run python server/cli.py ~/Videos --output-dir subtitles --skip-existing
 ```
 
 Preview a batch without loading the model:
 
 ```bash
-uv run python server/server.py ~/Videos --output-dir subtitles --dry-run
+uv run python server/cli.py ~/Videos --output-dir subtitles --dry-run
 ```
 
 Generate source-language subtitles only:
 
 ```bash
-uv run python server/server.py lecture.mov --source-lang eng --no-translate
+uv run python server/cli.py lecture.mov --source-lang eng --no-translate
 ```
 
 Run ASR and translation on the default MLX backend:
 
 ```bash
-uv run python server/server.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles
+uv run python server/cli.py movie.mp4 --source-lang eng --target-lang zho --output-dir subtitles
 ```
 
 By default, `mlx-whisper` transcribes audio on MLX and `mlx-lm` translates the
@@ -112,12 +112,12 @@ For proxied access, set `HTTP_PROXY` and `HTTPS_PROXY` in `.env`, for example
 explicitly before a batch run:
 
 ```bash
-uv run python server/server.py --check-proxy
-uv run python server/server.py --check-network
-uv run python server/server.py --check-model
-uv run python server/server.py --model-status
-uv run python server/server.py --download-model
-uv run python server/server.py --local-only ~/Videos/*.mp4 --output-dir subtitles
+uv run python server/cli.py --check-proxy
+uv run python server/cli.py --check-network
+uv run python server/cli.py --check-model
+uv run python server/cli.py --model-status
+uv run python server/cli.py --download-model
+uv run python server/cli.py --local-only ~/Videos/*.mp4 --output-dir subtitles
 ```
 
 `--check-proxy` validates HTTP CONNECT support on the configured proxy.
@@ -130,14 +130,14 @@ instead of downloading during a batch run.
 Override proxy settings for one command without editing `.env`:
 
 ```bash
-uv run python server/server.py --proxy http://127.0.0.1:8080 --check-proxy
-uv run python server/server.py --no-proxy --check-network
+uv run python server/cli.py --proxy http://127.0.0.1:8080 --check-proxy
+uv run python server/cli.py --no-proxy --check-network
 ```
 
 You can also pass local MLX model snapshot directories:
 
 ```bash
-uv run python server/server.py movie.mkv --model ~/.cache/huggingface/hub/models--mlx-community--whisper-tiny/snapshots/<revision>
+uv run python server/cli.py movie.mkv --model ~/.cache/huggingface/hub/models--mlx-community--whisper-tiny/snapshots/<revision>
 ```
 
 The MLX Whisper backend accepts the same common aliases and maps them to
@@ -183,7 +183,7 @@ progress, elapsed time, and an estimated time remaining (in minutes or hours).
 ```bash
 uv run python -m unittest discover -s tests
 uv run python -m py_compile server/*.py
-uv run python server/server.py --help
+uv run python server/cli.py --help
 ```
 
 For an end-to-end smoke test, run the CLI on a short local video and verify that

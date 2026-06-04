@@ -124,7 +124,7 @@
         <pre class="overflow-x-auto rounded-xl bg-slate-950 px-5 pb-5 text-[13px] leading-relaxed text-emerald-200/90"><span class="text-slate-500"># macOS, Python 3.10+</span>
 <span class="text-slate-400">brew install</span> uv ffmpeg
 <span class="text-slate-400">uv sync</span>
-<span class="text-slate-400">uv run python server/server.py</span> ~/Videos/<span class="text-indigo-300">*.mp4</span> --source-lang eng --target-lang zho</pre>
+<span class="text-slate-400">uv run python server/cli.py</span> ~/Videos/<span class="text-indigo-300">*.mp4</span> --source-lang eng --target-lang zho</pre>
       </div>
     </div>
   </section>
@@ -286,13 +286,13 @@ uv sync</pre>
       <div class="rounded-xl bg-slate-950 p-5 text-slate-100 shadow-soft">
         <div class="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">2 · Preview</div>
         <pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed"><span class="text-slate-500"># dry-run, no model load</span>
-uv run python server/server.py \
+uv run python server/cli.py \
   ~/Videos --dry-run</pre>
       </div>
       <div class="rounded-xl bg-slate-950 p-5 text-slate-100 shadow-soft">
         <div class="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">3 · Generate</div>
         <pre class="overflow-x-auto font-mono text-[12.5px] leading-relaxed"><span class="text-slate-500"># EN audio → bilingual EN/中文 SRT</span>
-uv run python server/server.py \
+uv run python server/cli.py \
   ~/Videos \
   --target-lang zho</pre>
       </div>

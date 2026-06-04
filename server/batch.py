@@ -1,7 +1,7 @@
 """Batch-processing business logic: input collection, engine factory,
 validation, output filtering, and collision detection.
 
-Shared by both the CLI (server.py) and the web UI (run_manager.py).
+Shared by both the CLI (cli.py) and the web UI (run_manager.py).
 """
 
 from __future__ import annotations

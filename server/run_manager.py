@@ -2,7 +2,7 @@
 
 Runs the subtitle pipeline in-process so that the MLX engine (and its
 loaded model weights) stay warm across consecutive runs.  The dry-run
-preview still shells out to ``server/server.py --dry-run`` because it
+preview still shells out to ``server/cli.py --dry-run`` because it
 never needs the models.
 """
 
@@ -31,7 +31,7 @@ from pipeline import SubtitlePipeline
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SERVER_SCRIPT = REPO_ROOT / "server" / "server.py"
+SERVER_SCRIPT = REPO_ROOT / "server" / "cli.py"
 LOG_BUFFER_LINES = 400
 LOG_TAIL_LINES = 80
 

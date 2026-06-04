@@ -1,4 +1,4 @@
-"""Batch subtitle CLI for local video files."""
+"""Command-line interface for batch subtitle generation."""
 
 from __future__ import annotations
 
