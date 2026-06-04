@@ -51,6 +51,12 @@ class RunManager:
         self._chunk_count: int = 0
         self._log: deque[str] = deque(maxlen=LOG_BUFFER_LINES)
         self._cmd: list[str] = []
+        self._preview_proc: subprocess.Popen | None = None
+        self._preview_state: str = "idle"
+        self._preview_error: str = ""
+        self._preview_progress: str = ""
+        self._preview_lines: list[str] = []
+        self._preview_result: dict | None = None
 
     def start(self, config: dict) -> dict:
         with self._lock:
@@ -249,50 +255,114 @@ class RunManager:
 
 
     def preview(self, config: dict) -> dict:
-        """Run --dry-run and return structured results.
+        """Start an async dry-run preview. Returns immediately."""
+        with self._lock:
+            if self._preview_proc is not None and self._preview_proc.poll() is None:
+                return self._preview_status_locked()
+            cmd_or_error = self._build_command(config)
+            if isinstance(cmd_or_error, str):
+                self._preview_reset_locked()
+                self._preview_state = "error"
+                self._preview_error = cmd_or_error
+                return self._preview_status_locked()
+            self._preview_reset_locked()
+            cmd = cmd_or_error + ["--dry-run"]
+            env = dict(os.environ)
+            env["PYTHONUNBUFFERED"] = "1"
+            try:
+                self._preview_proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    cwd=str(REPO_ROOT),
+                    env=env,
+                    text=True,
+                    bufsize=1,
+                )
+            except OSError as exc:
+                self._preview_state = "error"
+                self._preview_error = str(exc)
+                return self._preview_status_locked()
+            self._preview_state = "scanning"
+            self._preview_lines = []
+            reader = threading.Thread(target=self._preview_read_loop, daemon=True)
+            reader.start()
+            return self._preview_status_locked()
 
-        Uses a 30-second idle timeout: if no output line arrives within
-        30 seconds the subprocess is killed.  Progress lines emitted by
-        the dry-run keep the timer alive for arbitrarily large folders.
-        """
-        cmd_or_error = self._build_command(config)
-        if isinstance(cmd_or_error, str):
-            return {"error": cmd_or_error, "to_process": [], "skipped": []}
-        cmd = cmd_or_error + ["--dry-run"]
-        env = dict(os.environ)
-        env["PYTHONUNBUFFERED"] = "1"
-        try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                cwd=str(REPO_ROOT),
-                env=env,
-                text=True,
-                bufsize=1,
-            )
-        except OSError as exc:
-            return {"error": str(exc), "to_process": [], "skipped": []}
+    def preview_status(self) -> dict:
+        with self._lock:
+            return self._preview_status_locked()
+
+    def preview_cancel(self) -> dict:
+        with self._lock:
+            if self._preview_proc is not None and self._preview_proc.poll() is None:
+                self._preview_proc.kill()
+                self._preview_state = "error"
+                self._preview_error = "cancelled"
+            return self._preview_status_locked()
+
+    def _preview_reset_locked(self) -> None:
+        self._preview_proc = None
+        self._preview_state = "idle"
+        self._preview_error = ""
+        self._preview_progress = ""
+        self._preview_lines = []
+        self._preview_result = None
+
+    def _preview_read_loop(self) -> None:
+        import select
+        proc = self._preview_proc
+        if proc is None or proc.stdout is None:
+            return
         lines: list[str] = []
         try:
-            import select
             while True:
                 ready, _, _ = select.select([proc.stdout], [], [], 30)
                 if not ready:
                     proc.kill()
-                    return {"error": "scan timed out (no progress for 30s)", "to_process": [], "skipped": []}
+                    with self._lock:
+                        if self._preview_proc is proc:
+                            self._preview_state = "error"
+                            self._preview_error = "scan timed out (no progress for 30s)"
+                    return
                 raw = proc.stdout.readline()
                 if not raw:
                     break
-                lines.append(raw.rstrip("\n"))
+                line = raw.rstrip("\n")
+                lines.append(line)
+                parts = line.split("\t")
+                if parts[0] == "progress":
+                    with self._lock:
+                        if self._preview_proc is proc:
+                            self._preview_progress = "\t".join(parts[1:])
         except Exception as exc:
             proc.kill()
-            return {"error": str(exc), "to_process": [], "skipped": []}
+            with self._lock:
+                if self._preview_proc is proc:
+                    self._preview_state = "error"
+                    self._preview_error = str(exc)
+            return
         rc = proc.wait()
-        if rc != 0:
-            output = "\n".join(lines).strip()
-            return {"error": output or f"dry-run exited with code {rc}", "to_process": [], "skipped": []}
-        return _parse_dry_run("\n".join(lines))
+        with self._lock:
+            if self._preview_proc is not proc:
+                return
+            if rc != 0:
+                output = "\n".join(lines).strip()
+                self._preview_state = "error"
+                self._preview_error = output or f"dry-run exited with code {rc}"
+            else:
+                self._preview_state = "done"
+                self._preview_result = _parse_dry_run("\n".join(lines))
+
+    def _preview_status_locked(self) -> dict:
+        result = self._preview_result or {"to_process": [], "skipped": []}
+        return {
+            "state": self._preview_state,
+            "progress": self._preview_progress,
+            "error": self._preview_error,
+            "to_process": result.get("to_process", []),
+            "skipped": result.get("skipped", []),
+        }
 
 
 def _parse_dry_run(output: str) -> dict:

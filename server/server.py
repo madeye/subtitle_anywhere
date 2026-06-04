@@ -7,6 +7,7 @@ import glob
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 from config import BatchConfig
@@ -309,7 +310,8 @@ def create_engine(config: BatchConfig):
 def collect_inputs(patterns: list[str], progress: bool = False) -> list[Path]:
     files: list[Path] = []
     seen: set[Path] = set()
-    found = 0
+    scanned = 0
+    last_report = time.monotonic() if progress else 0.0
     for pattern in patterns:
         matches = glob.glob(os.path.expanduser(pattern), recursive=True)
         if not matches:
@@ -321,14 +323,20 @@ def collect_inputs(patterns: list[str], progress: bool = False) -> list[Path]:
             candidates = [Path(item) for item in matches]
         for candidate in candidates:
             if candidate.is_dir():
+                if progress:
+                    print(f"progress\tcollecting\t{len(files)}\tscanning {candidate}", flush=True)
                 for child in candidate.rglob("*"):
-                    prev = len(files)
                     _append_media(files, seen, child)
-                    if progress and len(files) > prev:
-                        found += 1
-                        print(f"progress\tcollecting\t{found}", flush=True)
+                    scanned += 1
+                    if progress:
+                        now = time.monotonic()
+                        if now - last_report >= 5:
+                            print(f"progress\tcollecting\t{len(files)}\t{scanned} files scanned", flush=True)
+                            last_report = now
             else:
                 _append_media(files, seen, candidate)
+    if progress:
+        print(f"progress\tcollecting\t{len(files)}\t{scanned} files scanned", flush=True)
     files.sort(key=lambda p: p.name)
     return files
 
