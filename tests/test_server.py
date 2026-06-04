@@ -203,7 +203,8 @@ class ServerCliTests(unittest.TestCase):
 
         mock_engine.assert_not_called()
         self.assertIn("inputs=1", output.getvalue())
-        self.assertIn("clip.wav ->", output.getvalue())
+        self.assertIn("process\t", output.getvalue())
+        self.assertIn("clip.wav", output.getvalue())
         self.assertIn("clip.zho.srt", output.getvalue())
 
     def test_dry_run_mlx_backend_prints_models_without_model_load(self) -> None:

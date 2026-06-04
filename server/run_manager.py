@@ -136,7 +136,7 @@ class RunManager:
             str(SERVER_SCRIPT),
             str(source_path),
             "--source-lang",
-            (config.get("source_lang") or "eng").strip(),
+            (config.get("source_lang") or "auto").strip(),
             "--target-lang",
             (config.get("target_lang") or "zho").strip(),
             "--log-level",
@@ -246,6 +246,43 @@ class RunManager:
             "command": self._cmd,
             "log_tail": list(self._log)[-LOG_TAIL_LINES:],
         }
+
+
+    def preview(self, config: dict) -> dict:
+        """Run --dry-run and return structured results."""
+        cmd_or_error = self._build_command(config)
+        if isinstance(cmd_or_error, str):
+            return {"error": cmd_or_error, "to_process": [], "skipped": []}
+        cmd = cmd_or_error + ["--dry-run"]
+        env = dict(os.environ)
+        env["PYTHONUNBUFFERED"] = "1"
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                env=env,
+                timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {"error": str(exc), "to_process": [], "skipped": []}
+        if result.returncode != 0:
+            stderr = (result.stderr or result.stdout or "").strip()
+            return {"error": stderr or f"dry-run exited with code {result.returncode}", "to_process": [], "skipped": []}
+        return _parse_dry_run(result.stdout)
+
+
+def _parse_dry_run(output: str) -> dict:
+    to_process: list[dict] = []
+    skipped: list[dict] = []
+    for line in output.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[0] == "skip":
+            skipped.append({"path": parts[1], "name": Path(parts[1]).name, "reason": parts[2]})
+        elif len(parts) >= 3 and parts[0] == "process":
+            to_process.append({"path": parts[1], "name": Path(parts[1]).name, "output": parts[2]})
+    return {"to_process": to_process, "skipped": skipped, "error": ""}
 
 
 _manager = RunManager()
