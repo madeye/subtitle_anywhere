@@ -170,6 +170,9 @@ class WebHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/run":
             self._json(HTTPStatus.OK, get_manager().status())
             return
+        if self.path == "/api/run/preview":
+            self._json(HTTPStatus.OK, get_manager().preview_status())
+            return
         parsed = urlsplit(self.path)
         if parsed.path == "/api/pick-folder":
             params = parse_qs(parsed.query)

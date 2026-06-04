@@ -445,6 +445,8 @@
       }
     }
 
+    let previewPollTimer = null;
+
     async function runPreview() {
       const cfg = readForm();
       if (!cfg.source_folder) {
@@ -452,9 +454,8 @@
         lastPreview = null;
         return;
       }
-      const lockStart = Date.now();
       setPreviewLock(true);
-      els.previewStatus.innerHTML = '<span class="spinner text-slate-400"></span> <span class="text-slate-400">scanning…</span>';
+      els.previewStatus.innerHTML = '<span class="spinner text-slate-400"></span> <span class="text-slate-400">starting scan…</span>';
       try {
         const res = await fetch('/api/run/preview', {
           method: 'POST',
@@ -462,24 +463,45 @@
           body: JSON.stringify(cfg),
         });
         const data = await res.json();
-        const elapsed = Date.now() - lockStart;
-        if (elapsed < 500) await new Promise(r => setTimeout(r, 500 - elapsed));
-        lastPreview = data;
-        if (data.error) {
-          els.previewStatus.innerHTML = `<span class="text-rose-400">${data.error}</span>`;
-          return;
-        }
-        const n = data.to_process.length;
-        const s = data.skipped.length;
-        let text = `${n} video${n === 1 ? '' : 's'} to process`;
-        if (s > 0) text += `, ${s} skipped`;
-        els.previewStatus.innerHTML = n > 0
-          ? `<span class="text-emerald-400">${text}</span>`
-          : `<span class="text-slate-500">${text}</span>`;
+        renderPreview(data);
       } catch (e) {
         els.previewStatus.textContent = '';
-      } finally {
         setPreviewLock(false);
+      }
+    }
+
+    function renderPreview(data) {
+      if (data.state === 'scanning') {
+        const prog = data.progress || '';
+        const label = prog ? `scanning… ${prog}` : 'scanning…';
+        els.previewStatus.innerHTML = `<span class="spinner text-slate-400"></span> <span class="text-slate-400">${label}</span>`;
+        if (previewPollTimer) clearTimeout(previewPollTimer);
+        previewPollTimer = setTimeout(pollPreview, 1000);
+        return;
+      }
+      if (previewPollTimer) { clearTimeout(previewPollTimer); previewPollTimer = null; }
+      setPreviewLock(false);
+      if (data.error) {
+        els.previewStatus.innerHTML = `<span class="text-rose-400">${data.error}</span>`;
+        return;
+      }
+      lastPreview = data;
+      const n = data.to_process.length;
+      const s = data.skipped.length;
+      let text = `${n} video${n === 1 ? '' : 's'} to process`;
+      if (s > 0) text += `, ${s} skipped`;
+      els.previewStatus.innerHTML = n > 0
+        ? `<span class="text-emerald-400">${text}</span>`
+        : `<span class="text-slate-500">${text}</span>`;
+    }
+
+    async function pollPreview() {
+      try {
+        const res = await fetch('/api/run/preview');
+        const data = await res.json();
+        renderPreview(data);
+      } catch (e) {
+        previewPollTimer = setTimeout(pollPreview, 2000);
       }
     }
 
