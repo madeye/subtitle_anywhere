@@ -201,7 +201,7 @@ def main() -> int:
             "--model-status, or --download-model is used"
         )
 
-    inputs = collect_inputs(args.inputs)
+    inputs = collect_inputs(args.inputs, progress=args.dry_run)
     if not inputs:
         logger.error("No supported input media files found")
         return 2
@@ -306,9 +306,10 @@ def create_engine(config: BatchConfig):
     return SeamlessM4TEngine(config.model_id, device=config.device, local_only=config.local_only)
 
 
-def collect_inputs(patterns: list[str]) -> list[Path]:
+def collect_inputs(patterns: list[str], progress: bool = False) -> list[Path]:
     files: list[Path] = []
     seen: set[Path] = set()
+    found = 0
     for pattern in patterns:
         matches = glob.glob(os.path.expanduser(pattern), recursive=True)
         if not matches:
@@ -320,10 +321,15 @@ def collect_inputs(patterns: list[str]) -> list[Path]:
             candidates = [Path(item) for item in matches]
         for candidate in candidates:
             if candidate.is_dir():
-                for child in sorted(candidate.rglob("*")):
+                for child in candidate.rglob("*"):
+                    prev = len(files)
                     _append_media(files, seen, child)
+                    if progress and len(files) > prev:
+                        found += 1
+                        print(f"progress\tcollecting\t{found}", flush=True)
             else:
                 _append_media(files, seen, candidate)
+    files.sort(key=lambda p: p.name)
     return files
 
 
