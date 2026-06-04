@@ -13,7 +13,7 @@ class BatchConfig:
     translator_model_id: str | None = "mlx-community/Qwen3-1.7B-4bit"
     local_only: bool = False
     device: str = "auto"
-    source_lang: str = "eng"
+    source_lang: str = "auto"
     target_lang: str = "zho"
     translate: bool = True
     output_dir: Path | None = None

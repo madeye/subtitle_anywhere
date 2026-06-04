@@ -70,6 +70,11 @@ class SeamlessM4TEngine:
         target_lang: str,
         translate: bool,
     ) -> tuple[str, str]:
+        if source_lang.lower() in ("auto", ""):
+            raise RuntimeError(
+                "The SeamlessM4T backend does not support --source-lang auto. "
+                "Specify a language code explicitly, or use --backend mlx-whisper."
+            )
         source_text = self.generate_text(audio, source_lang)
         translated_text = ""
         if translate and normalize_language_code(target_lang) != normalize_language_code(source_lang):
