@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import select
 import subprocess
 import sys
@@ -19,8 +18,15 @@ import time
 from collections import deque
 from pathlib import Path
 
+from batch import (
+    collect_inputs,
+    create_engine,
+    filter_existing_outputs,
+    find_output_collisions,
+    validate_batch_config,
+)
 from config import BatchConfig
-from pipeline import SubtitlePipeline, output_path_for
+from pipeline import SubtitlePipeline
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +73,6 @@ class RunManager:
         key = (config.backend, config.model_id, config.translator_model_id, config.local_only, config.device)
         if self._engine is not None and self._engine_key == key:
             return self._engine
-        from server import create_engine
         self._engine = create_engine(config)
         self._engine_key = key
         return self._engine
@@ -146,8 +151,6 @@ class RunManager:
         )
 
     def _run_pipeline(self, config: BatchConfig, source_path: Path) -> None:
-        from server import collect_inputs, create_engine, filter_existing_outputs, find_output_collisions, validate_batch_config
-
         try:
             with self._lock:
                 self._log_line("Collecting input files...")
