@@ -29,7 +29,7 @@ from mlx_whisper_engine import (
     normalize_whisper_language_code,
     resolve_mlx_model_path,
 )
-from audio_utils import find_external_subtitles, langs_match, probe_subtitle_languages
+from audio_utils import filename_contains_lang, find_external_subtitles, langs_match, probe_subtitle_languages
 from pipeline import SubtitlePipeline, output_path_for
 from seamless import SeamlessM4TEngine
 
@@ -410,6 +410,9 @@ def _skip_reason(input_path: Path, config: BatchConfig) -> str | None:
     output_path = output_path_for(input_path, config)
     if output_path.exists():
         return f"output exists: {output_path}"
+    fname_lang = filename_contains_lang(input_path, config.target_lang)
+    if fname_lang is not None:
+        return f"filename contains target lang: {fname_lang}"
     ext_sub = find_external_subtitles(input_path, config.target_lang)
     if ext_sub is not None:
         return f"external subtitle: {ext_sub.name}"
