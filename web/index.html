@@ -369,8 +369,7 @@
       if (!info?.path) { el.textContent = ''; return; }
       if (!info.exists) { el.innerHTML = '<span class="text-rose-500">does not exist</span>'; return; }
       if (!info.is_dir) { el.innerHTML = '<span class="text-rose-500">not a folder</span>'; return; }
-      const n = info.video_count;
-      el.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">${n} video${n === 1 ? '' : 's'} found</span>`;
+      el.textContent = '';
     }
 
     function readForm() {
