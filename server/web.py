@@ -109,6 +109,44 @@ def pick_folder(prompt: str, default: str = "") -> str | None:
     return path.rstrip("/") or "/"
 
 
+def pick_file(prompt: str, default: str = "") -> str | None:
+    """Open a native macOS file picker via osascript.
+
+    Returns the chosen POSIX path, or None if the user cancelled.
+    """
+    default_clause = ""
+    if default:
+        default_path = Path(default).expanduser()
+        parent = default_path.parent if default_path.is_file() else default_path
+        if parent.is_dir():
+            default_clause = f' default location POSIX file (item 2 of argv)'
+    script = (
+        'on run argv\n'
+        'try\n'
+        f'  set theFile to choose file with prompt (item 1 of argv){default_clause}\n'
+        '  return POSIX path of theFile\n'
+        'on error number -128\n'
+        '  return ""\n'
+        'end try\n'
+        'end run'
+    )
+    cmd = ["osascript", "-e", script, prompt]
+    if default_clause:
+        parent = Path(default).expanduser()
+        if parent.is_file():
+            parent = parent.parent
+        cmd.append(str(parent))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        logger.warning("file picker failed: %s", exc)
+        return None
+    path = result.stdout.strip()
+    if not path:
+        return None
+    return path
+
+
 def folder_info(path_str: str) -> dict:
     info = {"path": path_str, "exists": False, "is_dir": False, "video_count": 0}
     if not path_str:
@@ -183,6 +221,16 @@ class WebHandler(SimpleHTTPRequestHandler):
                 self._json(HTTPStatus.OK, {"cancelled": True})
             else:
                 self._json(HTTPStatus.OK, {"path": picked, "info": folder_info(picked)})
+            return
+        if parsed.path == "/api/pick-file":
+            params = parse_qs(parsed.query)
+            prompt = (params.get("prompt") or ["Choose a video file"])[0]
+            default = (params.get("default") or [""])[0]
+            picked = pick_file(prompt, default)
+            if picked is None:
+                self._json(HTTPStatus.OK, {"cancelled": True})
+            else:
+                self._json(HTTPStatus.OK, {"path": picked})
             return
         if self.path == "/":
             self.path = "/index.html"

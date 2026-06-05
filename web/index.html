@@ -48,9 +48,9 @@
           <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
           subtitle anywhere
         </div>
-        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Folders</h1>
+        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Source</h1>
         <p class="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
-          Tell the pipeline where your videos live and where the generated <code class="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">.srt</code> files should land. Same folder by default.
+          Pick a video file or a folder of videos to generate <code class="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">.srt</code> subtitles.
         </p>
       </div>
       <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
@@ -62,8 +62,16 @@
     <!-- Card -->
     <main class="flex-1">
       <form id="config-form" class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 sm:p-8 dark:bg-slate-950/40 dark:ring-slate-800/60">
-        <!-- Source -->
+        <!-- Source mode tabs -->
         <section>
+          <div class="flex items-center gap-1 rounded-lg bg-slate-100/80 p-0.5 dark:bg-slate-900/60">
+            <button type="button" id="mode_folder" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition bg-white shadow-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100">Folder</button>
+            <button type="button" id="mode_file" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Single File</button>
+          </div>
+        </section>
+
+        <!-- Source folder -->
+        <section id="source_folder_section" class="mt-4">
           <div class="flex items-baseline justify-between">
             <label for="source_folder" class="text-sm font-medium">Video source folder</label>
             <span id="source_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
@@ -85,6 +93,29 @@
           </div>
           <div id="scan_bar_wrap" class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" hidden>
             <div class="bar-indeterminate h-full rounded-full bg-indigo-500"></div>
+          </div>
+        </section>
+
+        <!-- Source file -->
+        <section id="source_file_section" class="mt-4" hidden>
+          <div class="flex items-baseline justify-between">
+            <label for="source_file" class="text-sm font-medium">Video file</label>
+            <span id="file_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
+          </div>
+          <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="source_file"
+              name="source_file"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="/Volumes/DATA/videos/movie.mp4"
+              class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
+            />
+            <button type="button" id="browse_file"
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
+              Browse…
+            </button>
           </div>
         </section>
 
@@ -253,9 +284,15 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
+    let sourceMode = 'folder';
     const els = {
       form: $('config-form'),
+      modeFolder: $('mode_folder'),
+      modeFile: $('mode_file'),
+      sourceFolderSection: $('source_folder_section'),
+      sourceFileSection: $('source_file_section'),
       source: $('source_folder'),
+      sourceFile: $('source_file'),
       dest: $('dest_folder'),
       destSection: $('dest_section'),
       same: $('same_as_source'),
@@ -266,11 +303,13 @@
       saveStatus: $('save_status'),
       scanBar: $('scan_bar_wrap'),
       srcStatus: $('source_status'),
+      fileStatus: $('file_status'),
       destStatus: $('dest_status'),
       cli: $('cli_preview'),
       copyCli: $('copy_cli'),
       browseSrc: $('browse_source'),
       browseDst: $('browse_dest'),
+      browseFile: $('browse_file'),
       cfgPath: $('config_path_hint'),
       previewStatus: $('preview_status'),
       scanBtn: $('scan_btn'),
@@ -290,6 +329,24 @@
       runLog: $('run_log'),
     };
 
+    function setSourceMode(mode) {
+      sourceMode = mode;
+      const isFolder = mode === 'folder';
+      els.sourceFolderSection.hidden = !isFolder;
+      els.sourceFileSection.hidden = isFolder;
+      els.scanBtn.hidden = !isFolder;
+      if (isFolder) {
+        els.modeFolder.className = 'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition bg-white shadow-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100';
+        els.modeFile.className = 'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200';
+      } else {
+        els.modeFile.className = 'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition bg-white shadow-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100';
+        els.modeFolder.className = 'flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200';
+      }
+      refreshPreview();
+    }
+    els.modeFolder.addEventListener('click', () => setSourceMode('folder'));
+    els.modeFile.addEventListener('click', () => setSourceMode('file'));
+
     const shellEscape = (s) => {
       if (!s) return '';
       if (/^[\w@%+=:,.\/-]+$/.test(s)) return s;
@@ -297,7 +354,7 @@
     };
 
     function buildCli(cfg) {
-      const src = cfg.source_folder?.trim();
+      const src = (cfg.source_file || cfg.source_folder || '').trim();
       if (!src) return 'python server/cli.py';
       const parts = ['python server/cli.py', shellEscape(src),
         '--source-lang', cfg.source_lang || 'auto',
@@ -318,7 +375,8 @@
 
     function readForm() {
       const cfg = {
-        source_folder: els.source.value.trim(),
+        source_folder: sourceMode === 'folder' ? els.source.value.trim() : '',
+        source_file: sourceMode === 'file' ? els.sourceFile.value.trim() : '',
         dest_folder: els.same.checked ? '' : els.dest.value.trim(),
         source_lang: els.srcLang.value,
         target_lang: els.tgtLang.value,
@@ -385,7 +443,7 @@
       els.destSection.hidden = els.same.checked;
       refreshPreview();
     });
-    [els.source, els.dest, els.srcLang, els.tgtLang, els.overwrite].forEach((el) => {
+    [els.source, els.sourceFile, els.dest, els.srcLang, els.tgtLang, els.overwrite].forEach((el) => {
       el.addEventListener('input', refreshPreview);
       el.addEventListener('change', refreshPreview);
     });
@@ -426,6 +484,29 @@
       pickFolderInto(els.source, { prompt: 'Choose the video source folder', statusEl: els.srcStatus, btn: els.browseSrc }));
     els.browseDst.addEventListener('click', () =>
       pickFolderInto(els.dest, { prompt: 'Choose the subtitle destination folder', statusEl: els.destStatus, btn: els.browseDst }));
+    els.browseFile.addEventListener('click', async () => {
+      const btn = els.browseFile;
+      const params = new URLSearchParams({ prompt: 'Choose a video file' });
+      const current = els.sourceFile.value.trim();
+      if (current) params.set('default', current);
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Picking…';
+      try {
+        const res = await fetch(`/api/pick-file?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.cancelled || !data.path) return;
+        els.sourceFile.value = data.path;
+        els.fileStatus.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400">selected</span>';
+        refreshPreview();
+      } catch (e) {
+        els.saveStatus.innerHTML = `<span class="text-rose-500">picker failed: ${e.message}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    });
     els.scanBtn.addEventListener('click', () => runPreview());
 
     // --- Preview (dry-run) -----------------------------------------------
