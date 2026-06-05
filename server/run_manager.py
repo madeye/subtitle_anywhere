@@ -82,16 +82,29 @@ class RunManager:
             if self._thread is not None and self._thread.is_alive():
                 return self._status_locked()
             self._reset_locked()
-            source = (config.get("source_folder") or "").strip()
-            if not source:
+
+            source_file = (config.get("source_file") or "").strip()
+            source_folder = (config.get("source_folder") or "").strip()
+
+            if source_file:
+                source_path = Path(source_file).expanduser()
+                if not source_path.is_file():
+                    self._state = "failed"
+                    self._error = f"source file does not exist: {source_path}"
+                    self._finished_at = time.monotonic()
+                    return self._status_locked()
+                input_files = [source_path.resolve()]
+            elif source_folder:
+                source_path = Path(source_folder).expanduser()
+                if not source_path.is_dir():
+                    self._state = "failed"
+                    self._error = f"source folder does not exist: {source_path}"
+                    self._finished_at = time.monotonic()
+                    return self._status_locked()
+                input_files = None
+            else:
                 self._state = "failed"
-                self._error = "source folder is empty — set it in the form above first"
-                self._finished_at = time.monotonic()
-                return self._status_locked()
-            source_path = Path(source).expanduser()
-            if not source_path.is_dir():
-                self._state = "failed"
-                self._error = f"source folder does not exist: {source_path}"
+                self._error = "no source selected — pick a file or folder first"
                 self._finished_at = time.monotonic()
                 return self._status_locked()
 
@@ -101,7 +114,9 @@ class RunManager:
             self._cancel_event.clear()
             self._log_line(f"Starting in-process run: source={source_path}")
             self._thread = threading.Thread(
-                target=self._run_pipeline, args=(batch_config, source_path), daemon=True
+                target=self._run_pipeline,
+                args=(batch_config, source_path, input_files),
+                daemon=True,
             )
             self._thread.start()
             return self._status_locked()
@@ -150,12 +165,14 @@ class RunManager:
             skip_existing=not overwrite,
         )
 
-    def _run_pipeline(self, config: BatchConfig, source_path: Path) -> None:
+    def _run_pipeline(self, config: BatchConfig, source_path: Path, input_files: list[Path] | None = None) -> None:
         try:
-            with self._lock:
-                self._log_line("Collecting input files...")
-
-            inputs = collect_inputs([str(source_path)])
+            if input_files is not None:
+                inputs = input_files
+            else:
+                with self._lock:
+                    self._log_line("Collecting input files...")
+                inputs = collect_inputs([str(source_path)])
             if not inputs:
                 with self._lock:
                     self._state = "failed"
