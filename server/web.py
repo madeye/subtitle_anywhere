@@ -148,15 +148,12 @@ def pick_file(prompt: str, default: str = "") -> str | None:
 
 
 def folder_info(path_str: str) -> dict:
-    info = {"path": path_str, "exists": False, "is_dir": False, "video_count": 0}
+    info = {"path": path_str, "exists": False, "is_dir": False}
     if not path_str:
         return info
     path = Path(path_str).expanduser()
     info["exists"] = path.exists()
     info["is_dir"] = path.is_dir()
-    if info["is_dir"]:
-        exts = (".mp4", ".mkv", ".avi", ".mov", ".m4v", ".webm")
-        info["video_count"] = sum(1 for p in path.rglob("*") if p.suffix.lower() in exts)
     return info
 
 
