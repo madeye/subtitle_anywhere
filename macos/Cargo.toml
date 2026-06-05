@@ -1,0 +1,8 @@
+[package]
+name = "subtitle-anywhere"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tao = "0.33"
+wry = "0.49"
