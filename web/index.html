@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
   <title>Subtitle Anywhere</title>
+  <script src="i18n.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Crect x='10' y='34' width='44' height='6' rx='3' fill='white'/%3E%3Crect x='16' y='44' width='32' height='6' rx='3' fill='white' opacity='0.7'/%3E%3Crect x='10' y='16' width='20' height='5' rx='2.5' fill='white' opacity='0.4'/%3E%3Crect x='34' y='16' width='20' height='5' rx='2.5' fill='white' opacity='0.4'/%3E%3Crect x='10' y='25' width='28' height='5' rx='2.5' fill='white' opacity='0.4'/%3E%3C/svg%3E" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -48,15 +49,18 @@
           <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
           subtitle anywhere
         </div>
-        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Source</h1>
-        <p class="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400">
+        <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl" data-i18n="title">Source</h1>
+        <p class="mt-2 max-w-md text-sm text-slate-600 dark:text-slate-400" data-i18n-html="subtitle">
           Pick a video file or a folder of videos to generate <code class="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[12px] dark:bg-slate-800/80">.srt</code> subtitles.
         </p>
       </div>
-      <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
-         class="hidden shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:shadow-sm sm:block dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800">
-        GitHub →
-      </a>
+      <div class="flex items-center gap-2">
+        <div id="lang_switcher" class="flex items-center gap-0.5 rounded-full border border-slate-200 px-1 py-0.5 dark:border-slate-800"></div>
+        <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+           class="hidden shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-white hover:shadow-sm sm:block dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800">
+          GitHub →
+        </a>
+      </div>
     </header>
 
     <!-- Card -->
@@ -66,7 +70,7 @@
         <div class="flex items-start gap-3">
           <span class="mt-0.5 text-lg">⚙️</span>
           <div class="flex-1">
-            <div class="text-sm font-semibold text-amber-900 dark:text-amber-200">First-time setup</div>
+            <div class="text-sm font-semibold text-amber-900 dark:text-amber-200" data-i18n="depsTitle">First-time setup</div>
             <p id="deps_message" class="mt-1 text-xs text-amber-800 dark:text-amber-300">
               MLX inference packages need to be downloaded (~200 MB). This only happens once.
             </p>
@@ -77,7 +81,7 @@
             <div class="mt-3 flex items-center gap-3">
               <button type="button" id="deps_install_btn"
                 class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-500 disabled:cursor-wait disabled:opacity-60">
-                Install now
+                <span data-i18n="depsInstall">Install now</span>
               </button>
               <span id="deps_status" class="text-xs text-amber-700 dark:text-amber-400"></span>
             </div>
@@ -89,15 +93,15 @@
         <!-- Source mode tabs -->
         <section>
           <div class="flex items-center gap-1 rounded-lg bg-slate-100/80 p-0.5 dark:bg-slate-900/60">
-            <button type="button" id="mode_folder" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition bg-white shadow-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100">Folder</button>
-            <button type="button" id="mode_file" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Single File</button>
+            <button type="button" id="mode_folder" data-i18n="modeFolder" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition bg-white shadow-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100">Folder</button>
+            <button type="button" id="mode_file" data-i18n="modeFile" class="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Single File</button>
           </div>
         </section>
 
         <!-- Source folder -->
         <section id="source_folder_section" class="mt-4">
           <div class="flex items-baseline justify-between">
-            <label for="source_folder" class="text-sm font-medium">Video source folder</label>
+            <label for="source_folder" class="text-sm font-medium" data-i18n="sourceFolder">Video source folder</label>
             <span id="source_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
           </div>
           <div class="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -110,7 +114,7 @@
               placeholder="/Volumes/DATA/videos/My Show/"
               class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
-            <button type="button" id="browse_source"
+            <button type="button" id="browse_source" data-i18n="browse"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
               Browse…
             </button>
@@ -123,7 +127,7 @@
         <!-- Source file -->
         <section id="source_file_section" class="mt-4" hidden>
           <div class="flex items-baseline justify-between">
-            <label for="source_file" class="text-sm font-medium">Video file</label>
+            <label for="source_file" class="text-sm font-medium" data-i18n="sourceFile">Video file</label>
             <span id="file_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
           </div>
           <div class="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -136,7 +140,7 @@
               placeholder="/Volumes/DATA/videos/movie.mp4"
               class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
-            <button type="button" id="browse_file"
+            <button type="button" id="browse_file" data-i18n="browse"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
               Browse…
             </button>
@@ -146,8 +150,8 @@
         <!-- Same-as-source toggle -->
         <section class="mt-6 flex items-center justify-between rounded-xl bg-slate-100/70 px-4 py-3 dark:bg-slate-900/40">
           <div>
-            <div class="text-sm font-medium">Subtitles land in the same folder</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">Turn off to write subtitles to a different folder.</div>
+            <div class="text-sm font-medium" data-i18n="sameFolder">Subtitles land in the same folder</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400" data-i18n="sameFolderHint">Turn off to write subtitles to a different folder.</div>
           </div>
           <label class="relative inline-flex shrink-0 cursor-pointer items-center">
             <input id="same_as_source" type="checkbox" class="peer sr-only" checked />
@@ -159,7 +163,7 @@
         <!-- Dest -->
         <section id="dest_section" class="mt-6 transition-all" hidden>
           <div class="flex items-baseline justify-between">
-            <label for="dest_folder" class="text-sm font-medium">Subtitle destination folder</label>
+            <label for="dest_folder" class="text-sm font-medium" data-i18n="destFolder">Subtitle destination folder</label>
             <span id="dest_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
           </div>
           <div class="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -172,7 +176,7 @@
               placeholder="/Volumes/Plex/Subtitles/My Show/"
               class="flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 font-mono text-[13px] outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
-            <button type="button" id="browse_dest"
+            <button type="button" id="browse_dest" data-i18n="browse"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
               Browse…
             </button>
@@ -182,30 +186,30 @@
         <!-- Language grid -->
         <section class="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label for="source_lang" class="block text-sm font-medium">Spoken language</label>
+            <label for="source_lang" class="block text-sm font-medium" data-i18n="spokenLang">Spoken language</label>
             <select id="source_lang"
               class="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50">
-              <option value="auto">Auto-detect</option>
-              <option value="eng">English</option>
-              <option value="zho">Chinese</option>
-              <option value="jpn">Japanese</option>
-              <option value="kor">Korean</option>
-              <option value="fra">French</option>
-              <option value="deu">German</option>
-              <option value="spa">Spanish</option>
+              <option value="auto" data-i18n="langAuto">Auto-detect</option>
+              <option value="eng" data-i18n="langEn">English</option>
+              <option value="zho" data-i18n="langZh">Chinese</option>
+              <option value="jpn" data-i18n="langJa">Japanese</option>
+              <option value="kor" data-i18n="langKo">Korean</option>
+              <option value="fra" data-i18n="langFr">French</option>
+              <option value="deu" data-i18n="langDe">German</option>
+              <option value="spa" data-i18n="langEs">Spanish</option>
             </select>
           </div>
           <div>
-            <label for="target_lang" class="block text-sm font-medium">Translate to</label>
+            <label for="target_lang" class="block text-sm font-medium" data-i18n="translateTo">Translate to</label>
             <select id="target_lang"
               class="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900/50">
-              <option value="zho">Chinese</option>
-              <option value="eng">English</option>
-              <option value="jpn">Japanese</option>
-              <option value="kor">Korean</option>
-              <option value="fra">French</option>
-              <option value="deu">German</option>
-              <option value="spa">Spanish</option>
+              <option value="zho" data-i18n="langZh">Chinese</option>
+              <option value="eng" data-i18n="langEn">English</option>
+              <option value="jpn" data-i18n="langJa">Japanese</option>
+              <option value="kor" data-i18n="langKo">Korean</option>
+              <option value="fra" data-i18n="langFr">French</option>
+              <option value="deu" data-i18n="langDe">German</option>
+              <option value="spa" data-i18n="langEs">Spanish</option>
             </select>
           </div>
         </section>
@@ -214,7 +218,7 @@
         <section class="mt-6 flex items-center gap-3">
           <input id="overwrite" type="checkbox"
             class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
-          <label for="overwrite" class="text-sm">Overwrite existing subtitles on re-runs</label>
+          <label for="overwrite" class="text-sm" data-i18n="overwrite">Overwrite existing subtitles on re-runs</label>
         </section>
 
         <!-- Actions -->
@@ -222,7 +226,7 @@
           <span id="save_status" class="text-xs text-slate-500 dark:text-slate-400"></span>
           <button type="submit" id="save_btn"
             class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 active:translate-y-px disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
-            Save
+            <span data-i18n="save">Save</span>
           </button>
         </div>
       </form>
@@ -230,23 +234,23 @@
       <!-- Generated CLI -->
       <section class="mt-6 rounded-2xl bg-slate-950 p-5 text-slate-100 shadow-soft ring-1 ring-slate-900/40 sm:p-6 dark:ring-slate-800/80">
         <div class="mb-3 flex items-center justify-between gap-2">
-          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Run command</div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400" data-i18n="runCommand">Run command</div>
           <div class="flex items-center gap-2">
             <button id="copy_cli" type="button"
               class="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-200 transition hover:bg-slate-800">
-              Copy
+              <span data-i18n="copy">Copy</span>
             </button>
             <button id="scan_btn" type="button"
               class="rounded-md border border-indigo-500/60 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60">
-              Scan
+              <span data-i18n="scan">Scan</span>
             </button>
             <button id="run_btn" type="button"
               class="rounded-md bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60">
-              Run
+              <span data-i18n="run">Run</span>
             </button>
             <button id="cancel_btn" type="button" hidden
               class="rounded-md border border-rose-500/60 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20">
-              Cancel
+              <span data-i18n="cancel">Cancel</span>
             </button>
           </div>
         </div>
@@ -271,7 +275,7 @@
         <!-- File-level progress -->
         <div class="mt-4">
           <div class="flex items-baseline justify-between text-xs">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Files</span>
+            <span class="font-medium text-slate-600 dark:text-slate-300" data-i18n="files">Files</span>
             <span id="run_progress_text" class="font-mono text-slate-500 dark:text-slate-400">0 / 0</span>
           </div>
           <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
@@ -282,7 +286,7 @@
         <!-- Chunk-level progress -->
         <div class="mt-4">
           <div class="flex items-baseline justify-between text-xs">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Current file</span>
+            <span class="font-medium text-slate-600 dark:text-slate-300" data-i18n="currentFile">Current file</span>
             <span id="run_chunk_text" class="font-mono text-slate-500 dark:text-slate-400">—</span>
           </div>
           <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
@@ -293,7 +297,7 @@
         <div id="run_current" class="mt-3 truncate font-mono text-[12px] text-slate-600 dark:text-slate-400"></div>
         <div id="run_error" class="mt-2 hidden text-xs text-rose-500"></div>
         <details class="mt-3 group">
-          <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Log</summary>
+          <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" data-i18n="log">Log</summary>
           <pre id="run_log" class="mt-2 max-h-56 overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-[11px] leading-snug text-emerald-200/90"></pre>
         </details>
       </section>
@@ -301,13 +305,39 @@
       <p id="config_path_hint" class="mt-4 text-center text-[11px] text-slate-400 dark:text-slate-500"></p>
     </main>
 
-    <footer class="mt-10 text-center text-[11px] text-slate-400 dark:text-slate-500">
+    <footer class="mt-10 text-center text-[11px] text-slate-400 dark:text-slate-500" data-i18n="footer">
       Local-only · no telemetry · zero cloud
     </footer>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
+
+    function applyI18n() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = t(el.dataset.i18nHtml);
+      });
+      renderLangSwitcher();
+    }
+
+    function renderLangSwitcher() {
+      const wrap = $('lang_switcher');
+      wrap.innerHTML = '';
+      for (const [code, label] of Object.entries(LANG_LABELS)) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = label;
+        btn.className = code === currentLang
+          ? 'rounded-full px-2 py-0.5 text-[11px] font-semibold bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+          : 'rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200';
+        btn.addEventListener('click', () => setLang(code));
+        wrap.appendChild(btn);
+      }
+    }
+
     let sourceMode = 'folder';
     const els = {
       form: $('config-form'),
@@ -391,8 +421,8 @@
 
     function renderInfo(el, info) {
       if (!info?.path) { el.textContent = ''; return; }
-      if (!info.exists) { el.innerHTML = '<span class="text-rose-500">does not exist</span>'; return; }
-      if (!info.is_dir) { el.innerHTML = '<span class="text-rose-500">not a folder</span>'; return; }
+      if (!info.exists) { el.innerHTML = `<span class="text-rose-500">${t('doesNotExist')}</span>`; return; }
+      if (!info.is_dir) { el.innerHTML = `<span class="text-rose-500">${t('notAFolder')}</span>`; return; }
       el.textContent = '';
     }
 
@@ -441,7 +471,7 @@
       ev?.preventDefault();
       const cfg = readForm();
       els.saveBtn.disabled = true;
-      els.saveStatus.textContent = 'saving…';
+      els.saveStatus.textContent = t('saving');
       try {
         const res = await fetch('/api/config', {
           method: 'POST',
@@ -453,7 +483,7 @@
         writeForm(data.config);
         renderInfo(els.srcStatus, data.source_info);
         renderInfo(els.destStatus, data.dest_info);
-        els.saveStatus.innerHTML = `<span class="flash-in text-emerald-600 dark:text-emerald-400">saved ✓</span>`;
+        els.saveStatus.innerHTML = `<span class="flash-in text-emerald-600 dark:text-emerald-400">${t('saved')}</span>`;
       } catch (e) {
         els.saveStatus.innerHTML = `<span class="text-rose-500">save failed: ${e.message}</span>`;
       } finally {
@@ -474,8 +504,8 @@
     els.copyCli.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(els.cli.textContent);
-        els.copyCli.textContent = 'copied';
-        setTimeout(() => (els.copyCli.textContent = 'Copy'), 1200);
+        els.copyCli.textContent = t('copied');
+        setTimeout(() => (els.copyCli.textContent = t('copy')), 1200);
       } catch {
         els.copyCli.textContent = 'copy blocked';
       }
@@ -487,7 +517,7 @@
       if (current) params.set('default', current);
       const originalLabel = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Picking…';
+      btn.textContent = t('picking');
       try {
         const res = await fetch(`/api/pick-folder?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -514,14 +544,14 @@
       if (current) params.set('default', current);
       const originalLabel = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Picking…';
+      btn.textContent = t('picking');
       try {
         const res = await fetch(`/api/pick-file?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.cancelled || !data.path) return;
         els.sourceFile.value = data.path;
-        els.fileStatus.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400">selected</span>';
+        els.fileStatus.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">${t('selected')}</span>`;
         refreshPreview();
       } catch (e) {
         els.saveStatus.innerHTML = `<span class="text-rose-500">picker failed: ${e.message}</span>`;
@@ -542,10 +572,10 @@
       els.scanBar.hidden = !locked;
       if (locked) {
         els.source.classList.add('opacity-60');
-        els.scanBtn.textContent = 'Scanning…';
+        els.scanBtn.textContent = t('scanning');
       } else {
         els.source.classList.remove('opacity-60');
-        els.scanBtn.textContent = 'Scan';
+        els.scanBtn.textContent = t('scan');
       }
     }
 
@@ -559,7 +589,7 @@
         return;
       }
       setPreviewLock(true);
-      els.previewStatus.innerHTML = '<span class="spinner text-slate-400"></span> <span class="text-slate-400">starting scan…</span>';
+      els.previewStatus.innerHTML = `<span class="spinner text-slate-400"></span> <span class="text-slate-400">${t('startingScan')}</span>`;
       try {
         const res = await fetch('/api/run/preview', {
           method: 'POST',
@@ -592,8 +622,7 @@
       lastPreview = data;
       const n = data.to_process.length;
       const s = data.skipped.length;
-      let text = `${n} video${n === 1 ? '' : 's'} to process`;
-      if (s > 0) text += `, ${s} skipped`;
+      const text = t('videosToProcess')(n, s);
       els.previewStatus.innerHTML = n > 0
         ? `<span class="text-emerald-400">${text}</span>`
         : `<span class="text-slate-500">${text}</span>`;
@@ -635,14 +664,16 @@
       return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
     }
 
-    const STATE_STYLES = {
-      idle:       { dot: 'bg-slate-400',   label: 'idle' },
-      running:    { dot: 'bg-emerald-500 animate-pulse', label: 'running' },
-      cancelling: { dot: 'bg-amber-500 animate-pulse',   label: 'cancelling…' },
-      cancelled:  { dot: 'bg-amber-500',   label: 'cancelled' },
-      done:       { dot: 'bg-emerald-500', label: 'done' },
-      failed:     { dot: 'bg-rose-500',    label: 'failed' },
-    };
+    function stateStyles() {
+      return {
+        idle:       { dot: 'bg-slate-400',   label: t('idle') },
+        running:    { dot: 'bg-emerald-500 animate-pulse', label: t('running') },
+        cancelling: { dot: 'bg-amber-500 animate-pulse',   label: t('cancelling') },
+        cancelled:  { dot: 'bg-amber-500',   label: t('cancelled') },
+        done:       { dot: 'bg-emerald-500', label: t('done') },
+        failed:     { dot: 'bg-rose-500',    label: t('failed') },
+      };
+    }
 
     function renderRun(status) {
       const isActive = status.state === 'running' || status.state === 'cancelling';
@@ -652,7 +683,8 @@
       els.runBtn.disabled = isActive;
       els.cancelBtn.hidden = !isActive;
 
-      const style = STATE_STYLES[status.state] || STATE_STYLES.idle;
+      const styles = stateStyles();
+      const style = styles[status.state] || styles.idle;
       els.runStateDot.className = `inline-block h-2 w-2 rounded-full ${style.dot}`;
       els.runStateText.textContent = style.label;
 
@@ -684,9 +716,9 @@
           els.runChunkText.textContent =
             `${formatClock(pos)} / ${formatClock(dur)} · chunk ${idx}`;
         } else if (status.chunk_count > 0) {
-          els.runChunkText.textContent = `chunk ${status.chunk_count} · loading duration…`;
+          els.runChunkText.textContent = `chunk ${status.chunk_count} · ${t('loadingDuration')}`;
         } else {
-          els.runChunkText.textContent = 'extracting audio…';
+          els.runChunkText.textContent = t('extractingAudio');
         }
       } else {
         els.runChunkText.textContent = '—';
@@ -702,9 +734,9 @@
       if (status.current_file && status.state === 'running') {
         els.runCurrent.textContent = `▸ ${status.current_file}`;
       } else if (status.state === 'done') {
-        els.runCurrent.textContent = total ? `✓ wrote ${total} subtitle file${total === 1 ? '' : 's'}` : '✓ done';
+        els.runCurrent.textContent = total ? t('wroteSubtitles')(total) : `✓ ${t('done')}`;
       } else if (status.state === 'cancelled') {
-        els.runCurrent.textContent = '✕ cancelled';
+        els.runCurrent.textContent = t('cancelledMsg');
       } else {
         els.runCurrent.textContent = '';
       }
@@ -800,8 +832,7 @@
         }
         if (!data.ready) {
           depsBanner.hidden = false;
-          depsMessage.textContent =
-            `Missing packages: ${data.missing.join(', ')}. These will be downloaded (~200 MB). This only happens once.`;
+          depsMessage.textContent = t('depsMissing')(data.missing);
           depsBarWrap.hidden = true;
           depsProgress.hidden = true;
           depsInstallBtn.hidden = false;
@@ -817,11 +848,11 @@
       depsInstallBtn.hidden = true;
       depsBarWrap.hidden = false;
       depsProgress.hidden = false;
-      depsProgress.textContent = install.progress || 'Installing…';
+      depsProgress.textContent = install.progress || t('depsInstalling');
       if (install.state === 'done') {
         depsBarWrap.hidden = true;
         depsStatus.textContent = '';
-        depsProgress.textContent = 'Installation complete!';
+        depsProgress.textContent = t('depsComplete');
         setTimeout(() => { depsBanner.hidden = true; }, 2000);
         if (depsInstallPoll) { clearInterval(depsInstallPoll); depsInstallPoll = null; }
       } else if (install.state === 'failed') {
@@ -847,7 +878,7 @@
 
     depsInstallBtn.addEventListener('click', async () => {
       depsInstallBtn.disabled = true;
-      depsStatus.innerHTML = '<span class="spinner"></span> Starting…';
+      depsStatus.innerHTML = `<span class="spinner"></span> ${t('depsStarting')}`;
       try {
         const res = await fetch('/api/deps/install', { method: 'POST' });
         const data = await res.json();
@@ -859,6 +890,7 @@
       }
     });
 
+    applyI18n();
     loadConfig();
     pollRun();
     checkDeps();
