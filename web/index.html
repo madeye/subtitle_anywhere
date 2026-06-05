@@ -61,6 +61,30 @@
 
     <!-- Card -->
     <main class="flex-1">
+      <!-- Deps setup banner -->
+      <div id="deps_banner" class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 shadow-soft dark:border-amber-700/40 dark:bg-amber-950/30" hidden>
+        <div class="flex items-start gap-3">
+          <span class="mt-0.5 text-lg">⚙️</span>
+          <div class="flex-1">
+            <div class="text-sm font-semibold text-amber-900 dark:text-amber-200">First-time setup</div>
+            <p id="deps_message" class="mt-1 text-xs text-amber-800 dark:text-amber-300">
+              MLX inference packages need to be downloaded (~200 MB). This only happens once.
+            </p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-200 dark:bg-amber-800" id="deps_bar_wrap" hidden>
+              <div id="deps_bar" class="bar-indeterminate h-full rounded-full bg-amber-500"></div>
+            </div>
+            <p id="deps_progress" class="mt-1 truncate font-mono text-[11px] text-amber-700 dark:text-amber-400" hidden></p>
+            <div class="mt-3 flex items-center gap-3">
+              <button type="button" id="deps_install_btn"
+                class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-500 disabled:cursor-wait disabled:opacity-60">
+                Install now
+              </button>
+              <span id="deps_status" class="text-xs text-amber-700 dark:text-amber-400"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form id="config-form" class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 sm:p-8 dark:bg-slate-950/40 dark:ring-slate-800/60">
         <!-- Source mode tabs -->
         <section>
@@ -755,8 +779,89 @@
     els.runBtn.addEventListener('click', startRun);
     els.cancelBtn.addEventListener('click', cancelRun);
 
+    // --- Deps setup ---------------------------------------------------
+    const depsBanner = $('deps_banner');
+    const depsInstallBtn = $('deps_install_btn');
+    const depsStatus = $('deps_status');
+    const depsMessage = $('deps_message');
+    const depsBarWrap = $('deps_bar_wrap');
+    const depsProgress = $('deps_progress');
+    let depsInstallPoll = null;
+
+    async function checkDeps() {
+      try {
+        const res = await fetch('/api/deps');
+        const data = await res.json();
+        if (data.install?.state === 'running') {
+          depsBanner.hidden = false;
+          renderDepsInstall(data.install);
+          depsInstallPoll = depsInstallPoll || setInterval(pollDepsInstall, 1000);
+          return;
+        }
+        if (!data.ready) {
+          depsBanner.hidden = false;
+          depsMessage.textContent =
+            `Missing packages: ${data.missing.join(', ')}. These will be downloaded (~200 MB). This only happens once.`;
+          depsBarWrap.hidden = true;
+          depsProgress.hidden = true;
+          depsInstallBtn.hidden = false;
+          depsInstallBtn.disabled = false;
+          depsStatus.textContent = '';
+        } else {
+          depsBanner.hidden = true;
+        }
+      } catch { /* ignore */ }
+    }
+
+    function renderDepsInstall(install) {
+      depsInstallBtn.hidden = true;
+      depsBarWrap.hidden = false;
+      depsProgress.hidden = false;
+      depsProgress.textContent = install.progress || 'Installing…';
+      if (install.state === 'done') {
+        depsBarWrap.hidden = true;
+        depsStatus.textContent = '';
+        depsProgress.textContent = 'Installation complete!';
+        setTimeout(() => { depsBanner.hidden = true; }, 2000);
+        if (depsInstallPoll) { clearInterval(depsInstallPoll); depsInstallPoll = null; }
+      } else if (install.state === 'failed') {
+        depsBarWrap.hidden = true;
+        depsProgress.innerHTML = `<span class="text-rose-600">${install.error}</span>`;
+        depsInstallBtn.hidden = false;
+        depsInstallBtn.disabled = false;
+        if (depsInstallPoll) { clearInterval(depsInstallPoll); depsInstallPoll = null; }
+      }
+    }
+
+    async function pollDepsInstall() {
+      try {
+        const res = await fetch('/api/deps');
+        const data = await res.json();
+        if (data.install) renderDepsInstall(data.install);
+        if (data.ready) {
+          depsBanner.hidden = true;
+          if (depsInstallPoll) { clearInterval(depsInstallPoll); depsInstallPoll = null; }
+        }
+      } catch { /* ignore */ }
+    }
+
+    depsInstallBtn.addEventListener('click', async () => {
+      depsInstallBtn.disabled = true;
+      depsStatus.innerHTML = '<span class="spinner"></span> Starting…';
+      try {
+        const res = await fetch('/api/deps/install', { method: 'POST' });
+        const data = await res.json();
+        renderDepsInstall(data);
+        depsInstallPoll = depsInstallPoll || setInterval(pollDepsInstall, 1000);
+      } catch (e) {
+        depsStatus.innerHTML = `<span class="text-rose-600">Install failed: ${e.message}</span>`;
+        depsInstallBtn.disabled = false;
+      }
+    });
+
     loadConfig();
     pollRun();
+    checkDeps();
   </script>
 </body>
 </html>
