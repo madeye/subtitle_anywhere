@@ -66,9 +66,9 @@
         Subtitle Anywhere
       </a>
       <nav class="hidden items-center gap-6 text-sm text-slate-600 sm:flex dark:text-slate-300">
+        <a href="https://github.com/madeye/subtitle_anywhere/releases/latest" class="font-semibold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300">Download</a>
         <a href="#features" class="transition hover:text-slate-900 dark:hover:text-white">Features</a>
-        <a href="#quickstart" class="transition hover:text-slate-900 dark:hover:text-white">Quick start</a>
-        <a href="#web-ui" class="transition hover:text-slate-900 dark:hover:text-white">Web UI</a>
+        <a href="#quickstart" class="transition hover:text-slate-900 dark:hover:text-white">Build from source</a>
         <a href="#output" class="transition hover:text-slate-900 dark:hover:text-white">Output</a>
       </nav>
       <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
@@ -99,39 +99,39 @@
         files for IINA, VLC, mpv, or Plex. No cloud, no API keys, no browser extension.
       </p>
       <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a href="https://github.com/madeye/subtitle_anywhere/releases/latest"
+           class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-emerald-500">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download for Mac
+        </a>
         <a href="#quickstart"
            class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
-          Get started →
-        </a>
-        <a href="#web-ui"
-           class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
-          See the web UI
+          Build from source
         </a>
         <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
            class="ml-1 text-sm text-slate-500 underline-offset-4 hover:underline dark:text-slate-400">
           View source
         </a>
       </div>
-
-      <!-- Install snippet -->
-      <div class="mt-10 max-w-2xl rounded-2xl bg-slate-950 p-1 shadow-glow ring-1 ring-slate-900/40">
-        <div class="flex items-center gap-2 px-4 py-2 text-[11px] font-medium uppercase tracking-widest text-slate-400">
-          <span class="h-2 w-2 rounded-full bg-rose-400/70"></span>
-          <span class="h-2 w-2 rounded-full bg-amber-400/70"></span>
-          <span class="h-2 w-2 rounded-full bg-emerald-400/70"></span>
-          <span class="ml-2">install</span>
-        </div>
-        <pre class="overflow-x-auto rounded-xl bg-slate-950 px-5 pb-5 text-[13px] leading-relaxed text-emerald-200/90"><span class="text-slate-500"># macOS, Python 3.10+</span>
-<span class="text-slate-400">brew install</span> uv ffmpeg
-<span class="text-slate-400">uv sync</span>
-<span class="text-slate-400">uv run python server/cli.py</span> ~/Videos/<span class="text-indigo-300">*.mp4</span> --source-lang eng --target-lang zho</pre>
-      </div>
+      <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+        Signed &amp; notarized. Apple Silicon only. Requires FFmpeg (<code class="font-mono">brew install ffmpeg</code>).
+        ML packages (~200 MB) download on first launch.
+      </p>
     </div>
   </section>
 
   <!-- Pillars -->
   <section class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
-    <div class="grid gap-6 sm:grid-cols-3">
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
+        <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-300">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h3 class="text-base font-semibold">Native macOS app</h3>
+        <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
+          Signed and notarized. Download the DMG, drag to Applications, and launch. ML packages install automatically on first run.
+        </p>
+      </article>
       <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
         <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z" stroke-linejoin="round"/></svg>
@@ -147,17 +147,16 @@
         </div>
         <h3 class="text-base font-semibold">MLX on Apple GPU</h3>
         <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
-          Whisper transcription and Qwen translation run on the Apple GPU via MLX. A 28-second encoder window keeps the
-          pipeline efficient on M1/M2/M3.
+          Whisper transcription and Qwen translation run on the Apple GPU via MLX. Efficient on M1/M2/M3/M4.
         </p>
       </article>
       <article class="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-slate-200/60 dark:bg-slate-950/40 dark:ring-slate-800/60">
         <div class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-300">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-5 w-5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 15h6"/></svg>
         </div>
-        <h3 class="text-base font-semibold">Bilingual SRT, side-by-side</h3>
+        <h3 class="text-base font-semibold">Bilingual SRT</h3>
         <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
-          Every cue carries the source line and the translation, with one sentence per screen by default. Works in IINA, VLC, mpv, and Plex.
+          Every cue carries the source line and the translation. Works in IINA, VLC, mpv, and Plex.
         </p>
       </article>
     </div>
@@ -201,23 +200,23 @@
   <section id="web-ui" class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
     <div class="grid items-start gap-10 lg:grid-cols-2">
       <div>
-        <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Web UI</div>
-        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">Run a batch without leaving the browser.</h2>
+        <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Interface</div>
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">Native app or CLI — your choice.</h2>
         <p class="mt-4 text-slate-600 dark:text-slate-400">
-          A zero-dependency local web frontend ships with the project. Pick your video folder
-          with the native macOS chooser, hit <strong class="font-semibold">Run</strong>, and watch
-          two progress bars — one for files in the batch, one for the audio inside the current
-          file — alongside elapsed time and an estimated time remaining in minutes or hours.
+          The macOS app bundles a Rust-based webview that launches the local server automatically.
+          Pick a single video file or an entire folder, hit <strong class="font-semibold">Run</strong>,
+          and watch two progress bars — one for files in the batch, one for audio inside the current
+          file — alongside elapsed time and ETA.
         </p>
         <ul class="mt-5 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Native folder picker (no path-typing).</li>
-          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Saved config in <code class="font-mono text-[12px]">~/.config/subtitle_anywhere/config.json</code>.</li>
-          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Live CLI preview — copy the equivalent terminal command at any time.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Folder or single-file mode with native macOS pickers.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>First-launch setup downloads ML packages automatically.</li>
+          <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Live CLI preview — copy the equivalent terminal command.</li>
           <li class="flex items-start gap-2"><span class="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>Per-chunk progress with <code class="font-mono text-[12px]">mm:ss / mm:ss</code> position inside each file.</li>
         </ul>
         <div class="mt-6">
           <code class="rounded-md bg-slate-900 px-3 py-1.5 font-mono text-[12.5px] text-emerald-200">uv run python server/web.py</code>
-          <span class="ml-3 text-xs text-slate-500 dark:text-slate-400">→ http://127.0.0.1:8765</span>
+          <span class="ml-3 text-xs text-slate-500 dark:text-slate-400">→ also available as standalone CLI</span>
         </div>
       </div>
 
@@ -232,7 +231,11 @@
         <div class="space-y-4 p-5 text-[13px]">
           <div>
             <div class="text-xs uppercase tracking-widest text-slate-500">Subtitle Anywhere</div>
-            <div class="mt-1 text-xl font-semibold tracking-tight">Folders</div>
+            <div class="mt-1 text-xl font-semibold tracking-tight">Source</div>
+          </div>
+          <div class="flex gap-1 rounded-md bg-slate-100 p-0.5 dark:bg-slate-800">
+            <div class="flex-1 rounded bg-white px-2 py-1 text-center text-[11px] font-semibold shadow-sm dark:bg-slate-700">Folder</div>
+            <div class="flex-1 rounded px-2 py-1 text-center text-[11px] text-slate-500 dark:text-slate-400">Single File</div>
           </div>
           <div>
             <label class="block text-[12px] font-medium">Video source folder</label>
@@ -240,7 +243,6 @@
               <div class="flex-1 truncate rounded-md bg-slate-100 px-2.5 py-1.5 font-mono text-[12px] text-slate-700 ring-inset-soft dark:bg-slate-900 dark:text-slate-300">/Volumes/DATA/videos/Show S03/</div>
               <button class="rounded-md bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700">Browse…</button>
             </div>
-            <div class="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">12 videos found</div>
           </div>
 
           <!-- Progress card -->
@@ -273,7 +275,7 @@
   <!-- Quick start -->
   <section id="quickstart" class="mx-auto max-w-6xl px-5 py-16 sm:px-8">
     <div class="mb-10 max-w-2xl">
-      <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Quick start</div>
+      <div class="mb-2 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Build from source</div>
       <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">From clone to first SRT in three commands.</h2>
     </div>
     <div class="grid gap-4 lg:grid-cols-3">
@@ -389,16 +391,16 @@ Roll the credits.
       <div class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div class="text-xs font-medium uppercase tracking-widest opacity-70">Ready?</div>
-          <h3 class="mt-1 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">Clone, sync, run. Your Mac handles the rest.</h3>
+          <h3 class="mt-1 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">Download the app. Your Mac handles the rest.</h3>
         </div>
         <div class="flex gap-3">
-          <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
+          <a href="https://github.com/madeye/subtitle_anywhere/releases/latest"
              class="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
-            Open the repo →
+            Download DMG →
           </a>
-          <a href="#quickstart"
+          <a href="https://github.com/madeye/subtitle_anywhere" target="_blank" rel="noopener"
              class="inline-flex items-center gap-2 rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 dark:border-slate-900/30 dark:text-slate-900 dark:hover:bg-slate-900/10">
-            Quick start
+            View source
           </a>
         </div>
       </div>
