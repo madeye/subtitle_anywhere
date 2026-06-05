@@ -46,12 +46,11 @@ rsync -a "$UV_PYTHON_DIR/" "$PYTHON_DIR/"
 PYTHON_BIN=$(ls "$PYTHON_DIR/bin/python${PYTHON_VERSION}"* 2>/dev/null | grep -v config | head -1)
 echo "    Bundled Python: $PYTHON_BIN"
 
-# --- 3. Install dependencies into the bundled Python ---
-echo "==> Installing Python dependencies"
-# Remove the externally-managed marker so we can install into this copy
+# --- 3. Install lightweight dependencies (ML deps installed on first launch) ---
+echo "==> Installing base Python dependencies"
 find "$PYTHON_DIR" -name EXTERNALLY-MANAGED -delete 2>/dev/null || true
 uv pip install --python "$PYTHON_BIN" --break-system-packages \
-    numpy huggingface_hub mlx-whisper mlx-lm 2>&1
+    numpy huggingface_hub 2>&1
 
 # --- 4. Copy application code ---
 echo "==> Copying application code"

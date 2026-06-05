@@ -13,6 +13,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 from http import HTTPStatus
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -147,6 +148,74 @@ def pick_file(prompt: str, default: str = "") -> str | None:
     return path
 
 
+REQUIRED_PACKAGES = ["mlx", "mlx_whisper", "mlx_lm"]
+
+
+def check_deps() -> dict:
+    missing = []
+    for pkg in REQUIRED_PACKAGES:
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing.append(pkg)
+    return {"ready": len(missing) == 0, "missing": missing}
+
+
+class DepsInstaller:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._state = "idle"
+        self._progress = ""
+        self._error = ""
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> dict:
+        with self._lock:
+            if self._state == "running":
+                return self.status()
+            self._state = "running"
+            self._progress = "Starting installation…"
+            self._error = ""
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return self.status()
+
+    def status(self) -> dict:
+        with self._lock:
+            return {"state": self._state, "progress": self._progress, "error": self._error}
+
+    def _run(self) -> None:
+        pip_packages = ["mlx-whisper", "mlx-lm"]
+        cmd = [sys.executable, "-m", "pip", "install", "--break-system-packages",
+               "--progress-bar=on", *pip_packages]
+        try:
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            )
+            for line in proc.stdout:
+                line = line.rstrip()
+                if line:
+                    with self._lock:
+                        self._progress = line
+            rc = proc.wait()
+            if rc != 0:
+                with self._lock:
+                    self._state = "failed"
+                    self._error = self._progress or f"pip exited with code {rc}"
+                return
+        except OSError as exc:
+            with self._lock:
+                self._state = "failed"
+                self._error = str(exc)
+            return
+        with self._lock:
+            self._state = "done"
+            self._progress = "Installation complete"
+
+
+_installer = DepsInstaller()
+
+
 def folder_info(path_str: str) -> dict:
     info = {"path": path_str, "exists": False, "is_dir": False}
     if not path_str:
@@ -202,6 +271,11 @@ class WebHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/health":
             self._json(HTTPStatus.OK, {"ok": True})
             return
+        if self.path == "/api/deps":
+            result = check_deps()
+            result["install"] = _installer.status()
+            self._json(HTTPStatus.OK, result)
+            return
         if self.path == "/api/run":
             self._json(HTTPStatus.OK, get_manager().status())
             return
@@ -234,6 +308,9 @@ class WebHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path == "/api/deps/install":
+            self._json(HTTPStatus.OK, _installer.start())
+            return
         if self.path == "/api/run/cancel":
             self._json(HTTPStatus.OK, get_manager().cancel())
             return
