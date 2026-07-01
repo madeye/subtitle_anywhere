@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import wave
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -115,6 +116,50 @@ class PipelineTests(unittest.TestCase):
             )
         )
         self.assertEqual([(start, end) for start, end, _ in chunks], [(0.0, 1.0), (1.0, 2.0)])
+
+    def test_process_file_extracts_from_source_without_staging_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            input_file = root / "remote.mp4"
+            input_file.write_bytes(b"media")
+            config = BatchConfig(output_dir=root / "out", work_dir=str(root / "work"))
+            Path(config.work_dir).mkdir()
+            pipeline = SubtitlePipeline(FakeEngine(), config)
+
+            with patch("pipeline.shutil.copyfile") as mock_copy:
+                with patch("pipeline.extract_audio") as mock_extract:
+                    with patch("pipeline.load_wav", return_value=np.ones(16_000, dtype=np.float32)):
+                        result = pipeline.process_file(input_file)
+
+        mock_copy.assert_not_called()
+        self.assertEqual(mock_extract.call_args.args[0], input_file.resolve())
+        self.assertEqual(result.segment_count, 1)
+
+    def test_process_file_can_stage_input_before_extracting_audio(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            input_file = root / "remote.mp4"
+            input_file.write_bytes(b"media")
+            config = BatchConfig(
+                output_dir=root / "out",
+                work_dir=str(root / "work"),
+                stage_input=True,
+            )
+            Path(config.work_dir).mkdir()
+            pipeline = SubtitlePipeline(FakeEngine(), config)
+
+            def fake_copy(src: Path, dst: Path) -> None:
+                Path(dst).write_bytes(Path(src).read_bytes())
+
+            with patch("pipeline.shutil.copyfile", side_effect=fake_copy) as mock_copy:
+                with patch("pipeline.extract_audio") as mock_extract:
+                    with patch("pipeline.load_wav", return_value=np.ones(16_000, dtype=np.float32)):
+                        pipeline.process_file(input_file)
+
+        mock_copy.assert_called_once()
+        extract_source = mock_extract.call_args.args[0]
+        self.assertNotEqual(extract_source, input_file.resolve())
+        self.assertEqual(extract_source.name, f"src_{input_file.name}")
 
     @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg is required for media extraction")
     def test_process_file_writes_bilingual_srt(self) -> None:

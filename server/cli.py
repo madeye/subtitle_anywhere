@@ -72,6 +72,11 @@ def main() -> int:
     parser.add_argument("--overwrite", action="store_true", help="Replace existing subtitle files")
     parser.add_argument("--skip-existing", action="store_true", help="Skip inputs whose target subtitle already exists")
     parser.add_argument("--keep-audio", action="store_true", help="Keep extracted WAV files beside output")
+    parser.add_argument(
+        "--stage-input",
+        action="store_true",
+        help="Copy each input to the local work directory before extracting audio; slower on NFS/SMB but useful for unreliable mounts",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Preview batch inputs and output paths without loading the model")
     parser.add_argument("--chunk-seconds", type=float, default=28.0)
     parser.add_argument("--cue-seconds", type=float, default=4.0, help="Maximum display cue duration after transcription")
@@ -206,6 +211,7 @@ def main() -> int:
         overwrite=args.overwrite,
         skip_existing=args.skip_existing,
         keep_audio=args.keep_audio,
+        stage_input=args.stage_input,
         chunk_seconds=args.chunk_seconds,
         cue_seconds=args.cue_seconds,
         max_cue_chars=args.max_cue_chars,

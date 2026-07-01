@@ -63,6 +63,16 @@ Preview a batch without loading the model:
 uv run python server/cli.py ~/Videos --output-dir subtitles --dry-run
 ```
 
+For media on NFS or Samba shares, the default pipeline streams FFmpeg directly
+from the source file into a local temporary WAV instead of copying the whole
+video first. This avoids a long up-front copy and extra local disk I/O. If a
+mount is unreliable with direct FFmpeg reads, keep the old local-staging
+behavior with:
+
+```bash
+uv run python server/cli.py /Volumes/Share/Videos --output-dir subtitles --stage-input
+```
+
 Generate source-language subtitles only:
 
 ```bash

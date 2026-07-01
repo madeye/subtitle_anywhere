@@ -20,6 +20,7 @@ class BatchConfig:
     overwrite: bool = False
     skip_existing: bool = False
     keep_audio: bool = False
+    stage_input: bool = False
     chunk_seconds: float = 28.0
     cue_seconds: float = 4.0
     max_cue_chars: int = 90

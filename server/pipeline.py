@@ -51,16 +51,21 @@ class SubtitlePipeline:
         with tempfile.TemporaryDirectory(
             prefix="subtitle_anywhere_", dir=self.config.work_dir
         ) as temp_dir:
-            local_video = Path(temp_dir) / f"src_{input_path.name}"
-            logger.info("Copying %s to local temp", input_path)
-            shutil.copy2(input_path, local_video)
-
             audio_path = Path(temp_dir) / f"{input_path.stem}.wav"
-            logger.info("Extracting audio from %s", local_video)
-            extract_audio(local_video, audio_path)
+            extract_source = input_path
+            staged_video: Path | None = None
+            if self.config.stage_input:
+                staged_video = Path(temp_dir) / f"src_{input_path.name}"
+                logger.info("Copying %s to local temp before extraction", input_path)
+                shutil.copyfile(input_path, staged_video)
+                extract_source = staged_video
 
-            local_video.unlink()
-            logger.info("Removed local copy %s", local_video)
+            logger.info("Extracting audio from %s", extract_source)
+            extract_audio(extract_source, audio_path)
+
+            if staged_video is not None:
+                staged_video.unlink(missing_ok=True)
+                logger.info("Removed local copy %s", staged_video)
 
             audio = load_wav(str(audio_path))
             logger.info("Audio duration %.1fs", len(audio) / 16_000)
