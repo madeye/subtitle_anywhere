@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 import batch
 import cli
+import run_manager
+import web as web_server
 from config import BatchConfig
 from hf_utils import LocalSnapshotStatus, ModelInfo, ProxyConnectStatus
 from mlx_whisper_engine import prefer_mlx_gpu
@@ -445,6 +447,50 @@ class ServerCliTests(unittest.TestCase):
             cli.apply_proxy_args(None, True)
             self.assertNotIn("HTTPS_PROXY", os.environ)
             self.assertNotIn("https_proxy", os.environ)
+
+
+class WebConfigTests(unittest.TestCase):
+    def test_web_config_persists_stage_input(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            config_path = Path(td) / "config.json"
+            with patch.object(web_server, "CONFIG_PATH", config_path):
+                saved = web_server.save_config(
+                    {
+                        "source_folder": "/media",
+                        "dest_folder": "/subs",
+                        "source_lang": "eng",
+                        "target_lang": "zho",
+                        "overwrite": False,
+                        "stage_input": True,
+                    }
+                )
+                loaded = web_server.load_config()
+
+        self.assertTrue(saved["stage_input"])
+        self.assertTrue(loaded["stage_input"])
+
+    def test_run_manager_passes_stage_input_to_batch_config(self) -> None:
+        manager = run_manager.RunManager()
+
+        config = manager._build_batch_config(
+            {"source_lang": "eng", "target_lang": "zho", "stage_input": True},
+            Path("/media"),
+        )
+
+        self.assertTrue(config.stage_input)
+
+    def test_preview_command_includes_stage_input_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / "media"
+            source.mkdir()
+            manager = run_manager.RunManager()
+
+            cmd = manager._build_preview_command(
+                {"source_folder": str(source), "stage_input": True}
+            )
+
+        self.assertIsInstance(cmd, list)
+        self.assertIn("--stage-input", cmd)
 
 
 class AudioUtilsSubtitleTests(unittest.TestCase):
