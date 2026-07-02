@@ -163,6 +163,7 @@ class RunManager:
             output_dir=output_dir,
             overwrite=overwrite,
             skip_existing=not overwrite,
+            stage_input=bool(config.get("stage_input")),
         )
 
     def _run_pipeline(self, config: BatchConfig, source_path: Path, input_files: list[Path] | None = None) -> None:
@@ -374,6 +375,8 @@ class RunManager:
         dest = (config.get("dest_folder") or "").strip()
         if dest and dest != source:
             cmd.extend(["--output-dir", str(Path(dest).expanduser())])
+        if config.get("stage_input"):
+            cmd.append("--stage-input")
         if config.get("overwrite"):
             cmd.append("--overwrite")
         else:

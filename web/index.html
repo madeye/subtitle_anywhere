@@ -214,11 +214,18 @@
           </div>
         </section>
 
-        <!-- Overwrite -->
-        <section class="mt-6 flex items-center gap-3">
-          <input id="overwrite" type="checkbox"
-            class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
-          <label for="overwrite" class="text-sm" data-i18n="overwrite">Overwrite existing subtitles on re-runs</label>
+        <!-- Options -->
+        <section class="mt-6 grid gap-3">
+          <label class="flex items-center gap-3">
+            <input id="overwrite" type="checkbox"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
+            <span class="text-sm" data-i18n="overwrite">Overwrite existing subtitles on re-runs</span>
+          </label>
+          <label class="flex items-center gap-3">
+            <input id="stage_input" type="checkbox"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
+            <span class="text-sm" data-i18n="stageInput">Stage input locally</span>
+          </label>
         </section>
 
         <!-- Actions -->
@@ -353,6 +360,7 @@
       srcLang: $('source_lang'),
       tgtLang: $('target_lang'),
       overwrite: $('overwrite'),
+      stageInput: $('stage_input'),
       saveBtn: $('save_btn'),
       saveStatus: $('save_status'),
       scanBar: $('scan_bar_wrap'),
@@ -415,6 +423,7 @@
         '--target-lang', cfg.target_lang || 'zho'];
       const dest = (cfg.dest_folder || '').trim();
       if (dest && dest !== src) parts.push('--output-dir', shellEscape(dest));
+      if (cfg.stage_input) parts.push('--stage-input');
       if (cfg.overwrite) parts.push('--overwrite');
       return parts.join(' ');
     }
@@ -434,6 +443,7 @@
         source_lang: els.srcLang.value,
         target_lang: els.tgtLang.value,
         overwrite: els.overwrite.checked,
+        stage_input: els.stageInput.checked,
       };
       return cfg;
     }
@@ -447,6 +457,7 @@
       if (cfg.source_lang) els.srcLang.value = cfg.source_lang;
       if (cfg.target_lang) els.tgtLang.value = cfg.target_lang;
       els.overwrite.checked = !!cfg.overwrite;
+      els.stageInput.checked = !!cfg.stage_input;
     }
 
     function refreshPreview() {
@@ -496,7 +507,7 @@
       els.destSection.hidden = els.same.checked;
       refreshPreview();
     });
-    [els.source, els.sourceFile, els.dest, els.srcLang, els.tgtLang, els.overwrite].forEach((el) => {
+    [els.source, els.sourceFile, els.dest, els.srcLang, els.tgtLang, els.overwrite, els.stageInput].forEach((el) => {
       el.addEventListener('input', refreshPreview);
       el.addEventListener('change', refreshPreview);
     });

@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "source_lang": "auto",
     "target_lang": "zho",
     "overwrite": False,
+    "stage_input": False,
 }
 
 ALLOWED_KEYS = set(DEFAULT_CONFIG.keys())
@@ -64,7 +65,7 @@ def save_config(payload: dict) -> dict:
             continue
         if key in {"source_folder", "dest_folder", "source_lang", "target_lang"}:
             sanitized[key] = str(value or "").strip()
-        elif key == "overwrite":
+        elif key in {"overwrite", "stage_input"}:
             sanitized[key] = bool(value)
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(sanitized, indent=2, sort_keys=True), encoding="utf-8")
