@@ -15,7 +15,7 @@ from pathlib import Path
 from audio_utils import filename_contains_lang, find_external_subtitles, langs_match, probe_subtitle_languages
 from config import BatchConfig
 from mlx_whisper_engine import MLXWhisperEngine, normalize_whisper_language_code
-from pipeline import output_path_for
+from pipeline import output_path_for, video_output_path_for
 from seamless import SeamlessM4TEngine
 
 logger = logging.getLogger(__name__)
@@ -140,6 +140,10 @@ def _skip_reason(input_path: Path, config: BatchConfig) -> str | None:
     output_path = output_path_for(input_path, config)
     if output_path.exists():
         return f"output exists: {output_path}"
+    if config.embed_subtitles:
+        video_out = video_output_path_for(input_path, config)
+        if video_out.exists():
+            return f"embedded video exists: {video_out}"
     fname_lang = filename_contains_lang(input_path, config.target_lang)
     if fname_lang is not None:
         return f"filename contains target lang: {fname_lang}"

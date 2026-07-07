@@ -154,6 +154,21 @@ def ensure_ffmpeg() -> None:
         raise RuntimeError("ffmpeg is required to extract audio from local videos")
 
 
+def ffmpeg_path() -> str:
+    """Return the best available ffmpeg binary path.
+
+    Prefers Homebrew's ``ffmpeg-full`` (built with libass for the ``subtitles``
+    filter) when installed, falling back to whatever ``ffmpeg`` is on PATH.
+    """
+    full = Path("/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")
+    if full.is_file():
+        return str(full)
+    found = shutil.which("ffmpeg")
+    if not found:
+        raise RuntimeError("ffmpeg is required to extract audio from local videos")
+    return found
+
+
 def extract_audio(video_path: Path, output_path: Path) -> Path:
     """Extract mono 16 kHz PCM WAV audio from a local media file."""
     ensure_ffmpeg()
@@ -176,6 +191,89 @@ def extract_audio(video_path: Path, output_path: Path) -> Path:
         "16000",
         "-acodec",
         "pcm_s16le",
+        os.fspath(output_path),
+    ]
+    subprocess.run(cmd, check=True)
+    return output_path
+
+
+def ensure_subtitles_filter() -> None:
+    """Raise a clear error if ffmpeg lacks the libass `subtitles` filter.
+
+    Homebrew's stock ``ffmpeg`` formula is built without ``--enable-libass``,
+    so the ``subtitles`` (and ``ass``) filters are unavailable even when the
+    ``libass`` library is installed. Hard-embedding subtitles needs an ffmpeg
+    build with libass, e.g. Homebrew's ``ffmpeg-full`` formula.
+    """
+    ensure_ffmpeg()
+    try:
+        result = subprocess.run(
+            [ffmpeg_path(), "-hide_banner", "-filters"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"could not probe ffmpeg filters: {exc}") from exc
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg -filters failed: {result.stderr.strip()}")
+    for line in result.stdout.splitlines():
+        # Filter list lines look like: " .. subtitles        V->V       ..."
+        tokens = line.split()
+        if len(tokens) >= 2 and tokens[1] == "subtitles":
+            return
+    raise RuntimeError(
+        "this ffmpeg build has no `subtitles` (libass) filter — install an "
+        "ffmpeg built with libass (e.g. `brew install ffmpeg-full`) to burn "
+        "subtitles into the video"
+    )
+
+
+def burn_subtitles(
+    video_path: Path,
+    subtitle_path: Path,
+    output_path: Path,
+    force_style: str | None = None,
+) -> Path:
+    """Hard-embed (burn) an SRT/ASS subtitle track into a video via FFmpeg.
+
+    Re-encodes the video with the ``subtitles`` libass filter and copies the
+    audio stream. Output container is MP4 (H.264 video, AAC audio) for broad
+    player compatibility.
+    """
+    ensure_subtitles_filter()
+    if not subtitle_path.is_file():
+        raise FileNotFoundError(subtitle_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        output_path.unlink()
+
+    filter_expr = f"subtitles='{subtitle_path.as_posix()}'"
+    if force_style:
+        filter_expr += f":force_style='{force_style}'"
+
+    cmd = [
+        ffmpeg_path(),
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        os.fspath(video_path),
+        "-vf",
+        filter_expr,
+        "-c:v",
+        "libx264",
+        "-crf",
+        "20",
+        "-preset",
+        "veryfast",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
         os.fspath(output_path),
     ]
     subprocess.run(cmd, check=True)

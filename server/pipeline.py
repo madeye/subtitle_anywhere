@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from audio_utils import extract_audio, load_wav
+from audio_utils import burn_subtitles, extract_audio, load_wav
 from config import BatchConfig
 from seamless import SeamlessM4TEngine, Segment
 
@@ -25,6 +25,7 @@ class SubtitleResult:
     input_path: Path
     output_path: Path
     segment_count: int
+    video_output_path: Path | None = None
 
 
 class SubtitlePipeline:
@@ -78,7 +79,22 @@ class SubtitlePipeline:
 
         output_path.write_text(render_srt(segments), encoding="utf-8")
         logger.info("Wrote %s (%d segments)", output_path, len(segments))
-        return SubtitleResult(input_path=input_path, output_path=output_path, segment_count=len(segments))
+
+        video_output_path: Path | None = None
+        if self.config.embed_subtitles:
+            video_output_path = video_output_path_for(input_path, self.config)
+            if video_output_path.exists() and not self.config.overwrite:
+                raise FileExistsError(f"Embedded video already exists: {video_output_path}")
+            logger.info("Burning subtitles into %s", video_output_path)
+            burn_subtitles(input_path, output_path, video_output_path)
+            logger.info("Wrote %s", video_output_path)
+
+        return SubtitleResult(
+            input_path=input_path,
+            output_path=output_path,
+            segment_count=len(segments),
+            video_output_path=video_output_path,
+        )
 
     def _process_chunks(self, audio: np.ndarray) -> list[Segment]:
         segments: list[Segment] = []
@@ -286,6 +302,19 @@ def output_path_for(input_path: Path, config: BatchConfig) -> Path:
     if config.output_dir:
         return config.output_dir / f"{input_path.stem}{suffix}"
     return input_path.with_name(f"{input_path.stem}{suffix}")
+
+
+def video_output_path_for(input_path: Path, config: BatchConfig) -> Path:
+    """Path for a hard-embedded (burned-in) video derived from *input_path*.
+
+    Sits beside the SRT output and uses the input's own container extension
+    when it is a common video format, otherwise falls back to ``.mp4``.
+    """
+    suffix = f".{config.target_lang}.mp4" if config.translate else ".subbed.mp4"
+    base = input_path.stem
+    if config.output_dir:
+        return config.output_dir / f"{base}{suffix}"
+    return input_path.with_name(f"{base}{suffix}")
 
 
 def iter_audio_chunks(

@@ -226,6 +226,11 @@
               class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
             <span class="text-sm" data-i18n="stageInput">Stage input locally</span>
           </label>
+          <label class="flex items-center gap-3">
+            <input id="embed_subtitles" type="checkbox"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900" />
+            <span class="text-sm" data-i18n="embedSubtitles">Burn subtitles into video (hardsubs)</span>
+          </label>
         </section>
 
         <!-- Actions -->
@@ -361,6 +366,7 @@
       tgtLang: $('target_lang'),
       overwrite: $('overwrite'),
       stageInput: $('stage_input'),
+      embedSubtitles: $('embed_subtitles'),
       saveBtn: $('save_btn'),
       saveStatus: $('save_status'),
       scanBar: $('scan_bar_wrap'),
@@ -424,6 +430,7 @@
       const dest = (cfg.dest_folder || '').trim();
       if (dest && dest !== src) parts.push('--output-dir', shellEscape(dest));
       if (cfg.stage_input) parts.push('--stage-input');
+      if (cfg.embed_subtitles) parts.push('--embed-subtitles');
       if (cfg.overwrite) parts.push('--overwrite');
       return parts.join(' ');
     }
@@ -444,6 +451,7 @@
         target_lang: els.tgtLang.value,
         overwrite: els.overwrite.checked,
         stage_input: els.stageInput.checked,
+        embed_subtitles: els.embedSubtitles.checked,
       };
       return cfg;
     }
@@ -458,6 +466,7 @@
       if (cfg.target_lang) els.tgtLang.value = cfg.target_lang;
       els.overwrite.checked = !!cfg.overwrite;
       els.stageInput.checked = !!cfg.stage_input;
+      els.embedSubtitles.checked = !!cfg.embed_subtitles;
     }
 
     function refreshPreview() {
@@ -507,7 +516,7 @@
       els.destSection.hidden = els.same.checked;
       refreshPreview();
     });
-    [els.source, els.sourceFile, els.dest, els.srcLang, els.tgtLang, els.overwrite, els.stageInput].forEach((el) => {
+    [els.source, els.sourceFile, els.dest, els.srcLang, els.tgtLang, els.overwrite, els.stageInput, els.embedSubtitles].forEach((el) => {
       el.addEventListener('input', refreshPreview);
       el.addEventListener('change', refreshPreview);
     });

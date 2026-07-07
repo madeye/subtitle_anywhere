@@ -33,7 +33,7 @@ from mlx_whisper_engine import (
     normalize_whisper_language_code,
     resolve_mlx_model_path,
 )
-from pipeline import SubtitlePipeline, output_path_for
+from pipeline import SubtitlePipeline, output_path_for, video_output_path_for
 
 logger = logging.getLogger("subtitle_anywhere")
 DEFAULT_SEAMLESS_MODEL = "facebook/seamless-m4t-medium"
@@ -76,6 +76,11 @@ def main() -> int:
         "--stage-input",
         action="store_true",
         help="Copy each input to the local work directory before extracting audio; slower on NFS/SMB but useful for unreliable mounts",
+    )
+    parser.add_argument(
+        "--embed-subtitles",
+        action="store_true",
+        help="Burn the generated subtitles into the video (hardsubs) and write an MP4 alongside the SRT",
     )
     parser.add_argument("--dry-run", action="store_true", help="Preview batch inputs and output paths without loading the model")
     parser.add_argument("--chunk-seconds", type=float, default=28.0)
@@ -212,6 +217,7 @@ def main() -> int:
         skip_existing=args.skip_existing,
         keep_audio=args.keep_audio,
         stage_input=args.stage_input,
+        embed_subtitles=args.embed_subtitles,
         chunk_seconds=args.chunk_seconds,
         cue_seconds=args.cue_seconds,
         max_cue_chars=args.max_cue_chars,
@@ -259,6 +265,8 @@ def main() -> int:
             logger.exception("Failed: %s", input_path)
             continue
         print(f"{result.output_path} ({result.segment_count} segments)")
+        if result.video_output_path is not None:
+            print(f"{result.video_output_path} (burned-in video)")
 
     if failed:
         logger.error("%d of %d files failed", failed, len(inputs))
@@ -299,7 +307,12 @@ def print_dry_run(inputs: list[Path], config: BatchConfig, skipped_existing: lis
     for input_path, reason in skipped_existing:
         print(f"skip\t{input_path}\t{reason}")
     for input_path in inputs:
-        print(f"process\t{input_path}\t{output_path_for(input_path, config)}")
+        out = (
+            video_output_path_for(input_path, config)
+            if config.embed_subtitles
+            else output_path_for(input_path, config)
+        )
+        print(f"process\t{input_path}\t{out}")
 
 
 def apply_proxy_args(proxy: str | None, no_proxy: bool) -> None:

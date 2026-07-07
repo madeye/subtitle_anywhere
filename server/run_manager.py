@@ -164,6 +164,7 @@ class RunManager:
             overwrite=overwrite,
             skip_existing=not overwrite,
             stage_input=bool(config.get("stage_input")),
+            embed_subtitles=bool(config.get("embed_subtitles")),
         )
 
     def _run_pipeline(self, config: BatchConfig, source_path: Path, input_files: list[Path] | None = None) -> None:
@@ -377,6 +378,8 @@ class RunManager:
             cmd.extend(["--output-dir", str(Path(dest).expanduser())])
         if config.get("stage_input"):
             cmd.append("--stage-input")
+        if config.get("embed_subtitles"):
+            cmd.append("--embed-subtitles")
         if config.get("overwrite"):
             cmd.append("--overwrite")
         else:
