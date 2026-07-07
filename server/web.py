@@ -34,11 +34,13 @@ CONFIG_PATH = Path(
 
 DEFAULT_CONFIG = {
     "source_folder": "",
+    "source_file": "",
     "dest_folder": "",
     "source_lang": "auto",
     "target_lang": "zho",
     "overwrite": False,
     "stage_input": False,
+    "embed_subtitles": False,
 }
 
 ALLOWED_KEYS = set(DEFAULT_CONFIG.keys())
@@ -63,9 +65,9 @@ def save_config(payload: dict) -> dict:
     for key, value in payload.items():
         if key not in ALLOWED_KEYS:
             continue
-        if key in {"source_folder", "dest_folder", "source_lang", "target_lang"}:
+        if key in {"source_folder", "source_file", "dest_folder", "source_lang", "target_lang"}:
             sanitized[key] = str(value or "").strip()
-        elif key in {"overwrite", "stage_input"}:
+        elif key in {"overwrite", "stage_input", "embed_subtitles"}:
             sanitized[key] = bool(value)
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(sanitized, indent=2, sort_keys=True), encoding="utf-8")
