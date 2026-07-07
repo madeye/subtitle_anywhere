@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python-tests:
+    name: Python tests (macOS arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install ffmpeg
+        run: brew install ffmpeg
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Syntax-check server modules
+        run: uv run python -m py_compile server/*.py
+
+      - name: CLI smoke test
+        run: uv run python server/cli.py --help
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests -v
+
+  launcher-check:
+    name: Rust launcher (cargo check)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: macos
+
+      - name: cargo check
+        run: cargo check --locked
+        working-directory: macos
